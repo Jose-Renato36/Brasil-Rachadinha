@@ -10,6 +10,7 @@ import br.unit.eleicao.indicador.ProducaoLegislativa;
 import br.unit.eleicao.indicador.ResultadoIndicador;
 import br.unit.eleicao.modelo.BaseDados;
 import br.unit.eleicao.modelo.Candidato;
+import br.unit.eleicao.modelo.CandidaturaAnterior;
 import br.unit.eleicao.modelo.Deputado;
 import br.unit.eleicao.modelo.Elegibilidade;
 import br.unit.eleicao.modelo.GrauInstrucao;
@@ -197,11 +198,19 @@ public class ServicoApi {
         m.put("mandato", d != null);
         m.put("reeleicao", c.getReeleicao());
         m.put("vinculoDuvidoso", c.isVinculoDuvidoso());
+        CandidaturaAnterior atual = c.getMandatoAtual(base.getMetadados().getAnoEleicao());
+        m.put("mandatoAtual", atual == null ? null : cargoLegivel(atual));
+        m.put("jaEleito", c.jaFoiEleito());
         Elegibilidade e = c.getElegibilidade();
         m.put("elegibilidade", e.name());
         m.put("elegibilidadeTexto", e.getRotulo());
         m.put("elegibilidadeExplicacao", e.getExplicacao());
         return m;
+    }
+
+    /** Ex.: "Vereador(a) em ARACAJU, eleito(a) em 2024". */
+    private static String cargoLegivel(CandidaturaAnterior c) {
+        return c.getCargoLegivel() + (c.getLocal().isEmpty() ? "" : " em " + c.getLocal()) + ", eleito(a) em " + c.getAno();
     }
 
     // ------------------------------------------------------------------ candidatos
@@ -235,6 +244,23 @@ public class ServicoApi {
         m.put("anoEleicao", meta.getAnoEleicao());
         m.put("anoAnterior", meta.getAnoAnterior());
         m.put("indicadores", valoresIndicadores(c, null));
+        List<Object> trajetoria = new ArrayList<>();
+        for (CandidaturaAnterior t : c.getTrajetoria()) {
+            Map<String, Object> tm = new LinkedHashMap<>();
+            tm.put("ano", t.getAno());
+            tm.put("cargo", t.getCargo());
+            tm.put("cargoTexto", t.getCargoLegivel());
+            tm.put("local", t.getLocal());
+            tm.put("partido", t.getPartido());
+            tm.put("resultado", t.getResultado());
+            tm.put("eleito", t.isEleito());
+            tm.put("fimMandato", t.getFimMandato());
+            trajetoria.add(tm);
+        }
+        m.put("trajetoria", trajetoria);
+        int[] anos = br.unit.eleicao.coleta.ProcessadorTrajetoria.anosAnteriores(meta.getAnoEleicao());
+        m.put("trajetoriaDe", anos[0]);
+        m.put("trajetoriaAte", anos[anos.length - 1]);
         Deputado d = base.getDeputadoDe(c);
         if (d != null) {
             Map<String, Object> dep = new LinkedHashMap<>();
@@ -302,6 +328,23 @@ public class ServicoApi {
                 titulo = "Já é deputado(a) federal?";
                 classe = c -> c.temMandatoNaCamara() ? "Sim (tem dados da Câmara)" : "Não";
                 break;
+            case "experiencia":
+                titulo = "Experiência em eleições anteriores";
+                for (String f : new String[]{"Tem mandato hoje", "Já foi eleito(a) antes", "Já concorreu, nunca eleito(a)",
+                    "Primeira eleição (desde " + ProcessadorTrajetoriaAnos.inicio(base) + ")"}) {
+                    contagem.put(f, 0);
+                }
+                classe = c -> {
+                    if (c.temMandatoNaCamara() || c.getMandatoAtual(base.getMetadados().getAnoEleicao()) != null) {
+                        return "Tem mandato hoje";
+                    }
+                    if (c.jaFoiEleito()) {
+                        return "Já foi eleito(a) antes";
+                    }
+                    return c.getTrajetoria().isEmpty() ? "Primeira eleição (desde " + ProcessadorTrajetoriaAnos.inicio(base) + ")"
+                            : "Já concorreu, nunca eleito(a)";
+                };
+                break;
             case "elegibilidade":
                 titulo = "Situação da candidatura";
                 classe = c -> c.getElegibilidade().getRotulo();
@@ -330,6 +373,13 @@ public class ServicoApi {
         r.put("total", base.getCandidatos().size());
         r.put("barras", barras);
         return r;
+    }
+
+    /** Primeiro ano da janela de trajetória, para os rótulos. */
+    private static final class ProcessadorTrajetoriaAnos {
+        static int inicio(BaseDados base) {
+            return br.unit.eleicao.coleta.ProcessadorTrajetoria.anosAnteriores(base.getMetadados().getAnoEleicao())[0];
+        }
     }
 
     private static String faixaEtaria(Integer idade) {

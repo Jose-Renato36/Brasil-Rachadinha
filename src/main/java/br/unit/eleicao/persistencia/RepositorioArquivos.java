@@ -4,6 +4,7 @@ import br.unit.eleicao.excecao.ArquivoInvalidoException;
 import br.unit.eleicao.excecao.DadosException;
 import br.unit.eleicao.modelo.BaseDados;
 import br.unit.eleicao.modelo.Candidato;
+import br.unit.eleicao.modelo.CandidaturaAnterior;
 import br.unit.eleicao.modelo.Deputado;
 import br.unit.eleicao.modelo.Despesa;
 import br.unit.eleicao.modelo.GrauInstrucao;
@@ -42,6 +43,7 @@ public class RepositorioArquivos {
     public static final String PROPOSICOES = "proposicoes.csv";
     public static final String POSICOES = "posicoes.csv";
     public static final String EXERCICIOS = "exercicios.csv";
+    public static final String TRAJETORIA = "trajetoria.csv";
 
     // ------------------------------------------------------------------ leitura
 
@@ -54,6 +56,7 @@ public class RepositorioArquivos {
         lerDeputados(base, dir.resolve(DEPUTADOS));
         lerExercicios(base, dir.resolve(EXERCICIOS));
         lerCandidatos(base, dir.resolve(CANDIDATOS));
+        lerTrajetoria(base, dir.resolve(TRAJETORIA));
         lerVotacoes(base, dir.resolve(VOTACOES));
         lerVotos(base, dir.resolve(VOTOS));
         lerDespesas(base, dir.resolve(DESPESAS));
@@ -156,6 +159,29 @@ public class RepositorioArquivos {
                 d.setUf(LeitorCsv.campo(l, iUf));
                 d.setUrlFoto(LeitorCsv.campo(l, iFoto));
                 base.adicionarDeputado(d);
+            }
+        }
+    }
+
+    private void lerTrajetoria(BaseDados base, Path arquivo) throws ArquivoInvalidoException {
+        if (!Files.exists(arquivo)) {
+            return;
+        }
+        try (LeitorCsv csv = new LeitorCsv(arquivo, StandardCharsets.UTF_8)) {
+            int iSq = csv.indice("sq");
+            int iAno = csv.indice("ano");
+            int iCargo = csv.indice("cargo");
+            int iLocal = csv.indice("local");
+            int iPartido = csv.indice("partido");
+            int iResultado = csv.indice("resultado");
+            String[] l;
+            while ((l = csv.proximaLinha()) != null) {
+                Candidato c = base.buscarCandidato(LeitorCsv.campo(l, iSq));
+                Integer ano = Texto.parseInteiro(LeitorCsv.campo(l, iAno));
+                if (c != null && ano != null) {
+                    c.adicionarCandidaturaAnterior(new CandidaturaAnterior(ano, LeitorCsv.campo(l, iCargo),
+                            LeitorCsv.campo(l, iLocal), LeitorCsv.campo(l, iPartido), LeitorCsv.campo(l, iResultado)));
+                }
             }
         }
     }
@@ -330,6 +356,14 @@ public class RepositorioArquivos {
                         c.getCorRaca(), c.getOcupacao(), c.getSituacao(), c.getPatrimonio(),
                         c.getPatrimonioAnterior(), c.getIdDeputado(), c.getCriterioVinculo(), c.getDetalheSituacao(),
                         c.getReeleicao());
+            }
+        }
+        try (EscritorCsv csv = new EscritorCsv(dir.resolve(TRAJETORIA), "sq", "ano", "cargo", "local", "partido",
+                "resultado")) {
+            for (Candidato c : base.getCandidatos()) {
+                for (CandidaturaAnterior t : c.getTrajetoria()) {
+                    csv.escrever(c.getSq(), t.getAno(), t.getCargo(), t.getLocal(), t.getPartido(), t.getResultado());
+                }
             }
         }
         try (EscritorCsv csv = new EscritorCsv(dir.resolve(VOTACOES), "id", "data", "descricao", "proposicao",

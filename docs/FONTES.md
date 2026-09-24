@@ -69,3 +69,30 @@ que valida as 32 colunas contra o arquivo de 2025:
 - Linhas de **lideranças partidárias** também usam a cota e vêm **sem `ideCadastro`**: são descartadas.
 - A API `/deputados/{id}/despesas` devolve lista vazia; por isso o arquivo anual é a fonte.
 - O arquivo traz o CPF do parlamentar e nomes de passageiros: nada disso é guardado.
+
+## Trajetória política (TSE, eleições anteriores)
+
+Para mostrar se a pessoa já foi candidata ou eleita (vereador, prefeito, deputado estadual…), o sistema
+lê `consulta_cand_{ano}.zip` das **quatro eleições anteriores** (para 2026: 2018, 2020, 2022 e 2024,
+gerais e municipais), no mesmo layout de 50 colunas.
+
+- Resultado: `DS_SIT_TOT_TURNO` (`ELEITO`, `ELEITO POR QP`, `ELEITO POR MÉDIA`, `SUPLENTE`, `NÃO ELEITO`,
+  `2º TURNO`). Quando há 2º turno, vale a linha de `NR_TURNO = 2`.
+- **Não existe chave de pessoa estável entre anos** (`SQ_CANDIDATO` muda a cada eleição). A ligação usa o
+  CPF quando os dois anos o publicam; em **2024 o TSE mascarou o CPF (`-4`)**, então usa nome civil +
+  data de nascimento, aceitando só correspondência única (homônimos com outra data não entram).
+- Limite: só o mesmo estado; quem concorreu em outra UF não aparece.
+- É informação de contexto (quem tem mandato hoje, quem já foi eleito), **nunca entra na nota**.
+
+## Fontes avaliadas para próximos passos
+
+| Fonte | O que traria | Situação |
+|---|---|---|
+| TSE – prestação de contas eleitorais (`prestacao_de_contas_eleitorais_candidatos_{ano}`) | quem financiou a campanha (fundo eleitoral, partido, pessoas físicas, recursos próprios) | aberta e padronizada; boa próxima etapa |
+| TSE – votação por candidato (`votacao_candidato_munzona_{ano}`) | quantos votos recebeu nas eleições anteriores | aberta; arquivos grandes |
+| Câmara – legislaturas anteriores (mesmos arquivos em lote, 2019-2022) | presença e projetos de ex-deputados federais que voltam a concorrer | mesma estrutura já lida; exige separar os indicadores por legislatura |
+| Câmara – API `/deputados/{id}/orgaos`, `/frentes` | comissões e frentes parlamentares de que participa | aberta; informativo |
+| Senado – API de dados abertos (`legis.senado.leg.br/dadosabertos`) | mandatos e votações de ex-senadores | aberta; caso raro para deputado federal |
+| Assembleias legislativas e câmaras municipais | atuação de deputados estaduais e vereadores | **sem padrão nacional**: cada casa publica (ou não) de um jeito; algumas têm API própria |
+| Portal da Transparência (CGU) – emendas parlamentares | para onde o deputado mandou emendas | exige cadastro de chave de acesso |
+| Processos judiciais | — | não há base aberta e estruturada confiável; risco de erro e de dano à reputação: fora do escopo |

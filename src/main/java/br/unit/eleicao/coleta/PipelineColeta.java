@@ -81,6 +81,11 @@ public class PipelineColeta {
         ProcessadorTSE tse = new ProcessadorTSE(pastaBrutos(), uf, anoEleicao, anoAnterior, log);
         tse.processar(base);
 
+        log.accept("Montando a trajetória política (eleições " + ProcessadorTrajetoria.anosAnteriores(anoEleicao)[0]
+                + " a " + (anoEleicao - 2) + ")...");
+        new ProcessadorTrajetoria(pastaBrutos(), uf, log).processar(new ArrayList<>(base.getCandidatos()),
+                tse.getCpfPorSq(), ProcessadorTrajetoria.anosAnteriores(anoEleicao));
+
         log.accept("Processando Câmara...");
         ProcessadorCamara camara = new ProcessadorCamara(pastaBrutos(), uf, anos, legislatura(anoEleicao),
                 inicioLegislatura(anoEleicao), log);
@@ -129,6 +134,11 @@ public class PipelineColeta {
         List<String> opcionais = new ArrayList<>(List.of(FontesDados.bens(anoEleicao),
                 FontesDados.candidatosComplementar(anoEleicao),
                 FontesDados.candidatos(anoAnterior), FontesDados.bens(anoAnterior), FontesDados.deputados()));
+        for (int ano : ProcessadorTrajetoria.anosAnteriores(anoEleicao)) {
+            if (ano != anoAnterior) {
+                opcionais.add(FontesDados.candidatos(ano)); // trajetória (anoAnterior já está na lista)
+            }
+        }
         for (int ano : anos) {
             opcionais.add(FontesDados.votacoes(ano));
             opcionais.add(FontesDados.votos(ano));

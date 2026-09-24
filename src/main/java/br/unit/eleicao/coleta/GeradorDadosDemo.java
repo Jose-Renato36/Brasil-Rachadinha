@@ -3,6 +3,7 @@ package br.unit.eleicao.coleta;
 import br.unit.eleicao.excecao.DadosException;
 import br.unit.eleicao.modelo.BaseDados;
 import br.unit.eleicao.modelo.Candidato;
+import br.unit.eleicao.modelo.CandidaturaAnterior;
 import br.unit.eleicao.modelo.Deputado;
 import br.unit.eleicao.modelo.Despesa;
 import br.unit.eleicao.modelo.GrauInstrucao;
@@ -182,6 +183,20 @@ public class GeradorDadosDemo {
         }
         if (deputado != null) {
             c.vincularDeputado(deputado.getId(), "DEMONSTRAÇÃO");
+            c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2022, "DEPUTADO FEDERAL", "", c.getPartido(),
+                    "Eleito(a)"));
+            if (i % 3 == 0) {
+                c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2018, "DEPUTADO ESTADUAL", "", c.getPartido(),
+                        "Eleito(a)"));
+            }
+        } else if (i % 4 == 0) {
+            c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2024, "VEREADOR", "CIDADE FICTÍCIA",
+                    c.getPartido(), i % 8 == 0 ? "Eleito(a)" : "Suplente"));
+        } else if (i % 5 == 0) {
+            c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2022, "DEPUTADO ESTADUAL", "", c.getPartido(),
+                    "Eleito(a)"));
+            c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2020, "PREFEITO", "OUTRA CIDADE FICTÍCIA",
+                    c.getPartido(), "Não eleito(a)"));
         }
         return c;
     }

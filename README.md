@@ -39,7 +39,7 @@ A coleta também pode ser feita **pelo próprio site**, na aba **Dados**: escolh
 | **Início** | busca por nome ou número e os três passos |
 | **O que importa pra mim** | para cada critério: *Não importa / Importa / Importa muito*; a lista se reorganiza na hora. Opções avançadas: pesos de 0 a 10, inverter o sentido, TOPSIS, cobertura mínima |
 | **Minhas opiniões** | projetos já votados no Plenário, um por vez: *Eu votaria SIM / NÃO / Pular*. Alimenta o critério "Vota como eu votaria" |
-| **Perfil** | número na urna, situação da candidatura, cada indicador com o cálculo e a fonte, projetos aprovados |
+| **Perfil** | número na urna, situação da candidatura, cada indicador com o cálculo e a fonte, projetos aprovados e a **trajetória política** (candidaturas e mandatos desde 2018, inclusive vereador, prefeito e deputado estadual) |
 | **Comparar** | até 3 pessoas lado a lado, com gráfico |
 | **Panorama** | distribuições (escolaridade, idade, bens, gênero, cor/raça…) e correlação entre duas variáveis |
 | **Como funciona** | metodologia e limites |
@@ -55,6 +55,7 @@ A coleta também pode ser feita **pelo próprio site**, na aba **Dados**: escolh
 | Patrimônio estável | TSE | variação % dos bens declarados entre 2022 e 2026 |
 | Vota como eu votaria | Câmara | % dos votos Sim/Não iguais às respostas do usuário |
 | Situação da candidatura | TSE | **filtro, não nota** (apta, em análise, com recurso, inapta) |
+| Trajetória política | TSE 2018-2024 | candidaturas anteriores e mandato atual; **contexto, não nota** |
 
 "Sem dados" nunca vira zero. Por padrão só recebe nota quem tem dados em pelo menos **2 critérios**,
 para um estreante não ficar em 1º lugar avaliado só pelo patrimônio. Gênero e cor/raça aparecem só no
@@ -117,8 +118,9 @@ src/main/resources/web/   index.html, estilo.css, app.js, metodologia.html
 
 ## Testes
 
-`mvn test` roda 38 testes: estatística, CSV, cada indicador (inclusive presença descontando licenças),
-normalização, soma ponderada, TOPSIS, cobertura mínima, elegibilidade, histórico de deputados, cruzamento
+`mvn test` roda 40 testes: estatística, CSV, cada indicador (inclusive presença descontando licenças),
+normalização, soma ponderada, TOPSIS, cobertura mínima, elegibilidade, histórico de deputados, trajetória
+política (CPF mascarado em 2024, 2º turno, homônimos), cruzamento
 de identidades, gravação/leitura, a coleta completa sobre arquivos no **layout real** do TSE 2026 (50
 colunas, `#NULO`, latin-1) e da Câmara, e o servidor web respondendo como o navegador.
 

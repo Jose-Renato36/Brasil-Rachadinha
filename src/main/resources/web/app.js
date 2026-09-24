@@ -62,7 +62,9 @@ function avatar(c, grande) {
 
 function etiquetas(c) {
   const e = [];
-  if (c.mandato) e.push('<span class="etiqueta azul">Deputado(a) atual</span>');
+  if (c.mandato) e.push('<span class="etiqueta azul">Deputado(a) federal atual</span>');
+  else if (c.mandatoAtual) e.push(`<span class="etiqueta azul" title="${esc(c.mandatoAtual)}">Tem mandato: ${esc(c.mandatoAtual.split(',')[0])}</span>`);
+  else if (c.jaEleito) e.push('<span class="etiqueta">Já foi eleito(a) antes</span>');
   if (c.elegibilidade === 'INAPTA') e.push(`<span class="etiqueta perigo" title="${esc(c.elegibilidadeExplicacao)}">Candidatura inapta</span>`);
   if (c.elegibilidade === 'SUB_JUDICE') e.push(`<span class="etiqueta alerta" title="${esc(c.elegibilidadeExplicacao)}">Com recurso na Justiça</span>`);
   if (c.elegibilidade === 'EM_ANALISE') e.push(`<span class="etiqueta" title="${esc(c.elegibilidadeExplicacao)}">Registro em análise</span>`);
@@ -352,7 +354,7 @@ async function telaCandidato([sq]) {
   const dep = c.deputado;
   const naLista = app.comparar.includes(c.sq);
   main().innerHTML = `
-    <p><a href="javascript:history.back()">← Voltar</a></p>
+    <p><button class="botao discreto" id="voltar">← Voltar</button></p>
     <section class="cartao perfil-topo">
       ${avatar(c, true)}
       <div style="flex:1;min-width:240px">
@@ -371,6 +373,8 @@ async function telaCandidato([sq]) {
       ${c.aprovadas.length ? `<ul>${c.aprovadas.map(p => `<li><strong>${esc(p.identificacao)}</strong> – ${esc(p.ementa)} <small>(${esc(p.situacao)})</small></li>`).join('')}</ul>`
         : '<p class="fraco">Nenhum projeto de autoria aprovado no período analisado.</p>'}
       <p><a href="${esc(dep.url)}" target="_blank" rel="noopener">Ver página oficial na Câmara ↗</a></p>` : ''}
+    <h2 style="margin-top:28px">Trajetória política</h2>
+    ${trajetoriaHtml(c)}
     <h2 style="margin-top:28px">Sobre a candidatura</h2>
     <div class="cartao rolagem-x"><table class="tabela">
       <tr><th>Idade na eleição</th><td>${c.idade != null ? c.idade + ' anos' : 'não informada'}</td></tr>
@@ -385,6 +389,26 @@ async function telaCandidato([sq]) {
     <p style="margin-top:20px"><button class="botao" id="btn-comparar">${naLista ? '✓ Está na comparação' : '+ Adicionar à comparação'}</button>
       <a class="botao secundario" href="#/comparar">Ir para comparação</a></p>`;
   $('#btn-comparar').addEventListener('click', () => { alternarComparacao(c.sq); telaCandidato([c.sq]); });
+  $('#voltar').addEventListener('click', () => { if (history.length > 1) history.back(); else location.hash = '#/ranking'; });
+}
+
+function trajetoriaHtml(c) {
+  const periodo = `nas eleições de ${c.trajetoriaDe} a ${c.trajetoriaAte}`;
+  if (!c.trajetoria.length) {
+    return `<p class="caixa-info">Não encontramos outras candidaturas desta pessoa ${periodo} neste estado.
+      Pode ser a primeira eleição, ou ela concorreu em outro estado.</p>`;
+  }
+  const itens = c.trajetoria.map(t => {
+    const exercendo = t.eleito && t.fimMandato >= app.estado.anoEleicao && t.ano < app.estado.anoEleicao;
+    const cls = t.eleito ? 'ok' : t.resultado === 'Suplente' ? 'alerta' : '';
+    return `<li class="marco"><span class="ano">${t.ano}</span>
+      <div><strong>${esc(t.cargoTexto)}</strong>${t.local ? ' em ' + esc(t.local) : ''} · ${esc(t.partido)}
+        <span class="etiqueta ${cls}">${esc(t.resultado)}</span>
+        ${exercendo ? `<br><small>Mandato até ${t.fimMandato}${t.cargo === 'DEPUTADO FEDERAL' ? '' : ' — os dados da atuação neste cargo não estão nas fontes usadas'}</small>` : ''}</div></li>`;
+  }).join('');
+  return `<div class="cartao"><ol class="linha-tempo">${itens}</ol>
+    <small>Fonte: TSE, candidaturas ${periodo}, mesmo estado. Ligamos as candidaturas pelo CPF ou, quando o TSE
+    não publica o CPF (2024), pelo nome completo + data de nascimento.</small></div>`;
 }
 
 // ------------------------------------------------------------ opiniões
@@ -510,6 +534,8 @@ async function desenharComparacao() {
     ['Número / partido', c => `<strong>${esc(c.numero)}</strong> · ${esc(c.partido)}`],
     ['Situação', c => esc(c.elegibilidadeTexto)],
     ['Já é deputado(a)?', c => c.mandato ? 'Sim' : 'Não'],
+    ['Outro mandato hoje', c => c.mandatoAtual && !c.mandato ? esc(c.mandatoAtual) : '–'],
+    ['Eleições anteriores', c => c.trajetoria.length ? c.trajetoria.map(t => `${t.ano}: ${esc(t.cargoTexto)} – ${esc(t.resultado)}`).join('<br>') : 'nenhuma encontrada'],
     ['Idade', c => c.idade != null ? c.idade + ' anos' : '–'],
     ['Escolaridade', c => esc(c.escolaridade)],
     ['Bens declarados', c => moeda(c.patrimonio)],
@@ -541,7 +567,8 @@ async function desenharComparacao() {
 // ------------------------------------------------------------ panorama
 
 const DISTRIBUICOES = [['escolaridade', 'Escolaridade'], ['idade', 'Idade'], ['patrimonio', 'Bens declarados'],
-  ['genero', 'Gênero'], ['corRaca', 'Cor/raça'], ['partido', 'Partido'], ['mandato', 'Já é deputado?'], ['elegibilidade', 'Situação']];
+  ['genero', 'Gênero'], ['corRaca', 'Cor/raça'], ['partido', 'Partido'], ['experiencia', 'Experiência'],
+  ['mandato', 'Já é deputado?'], ['elegibilidade', 'Situação']];
 
 async function telaPanorama() {
   const vars = await api('variaveis');
@@ -612,7 +639,7 @@ function graficoBarras(categorias, series, opts = {}) {
   let svg = `<svg viewBox="0 0 ${L} ${A}" role="img" aria-label="Gráfico de barras">`;
   for (let i = 0; i <= 4; i++) {
     const y = mT + alt - alt * i / 4;
-    svg += `<line x1="${mE}" x2="${L - mD}" y1="${y}" y2="${y}" stroke="#e4e3df"/><text x="${mE - 6}" y="${y + 4}" text-anchor="end">${numeroCurto(max * i / 4)}</text>`;
+    svg += `<line x1="${mE}" x2="${L - mD}" y1="${y}" y2="${y}" style="stroke:var(--grade)"/><text x="${mE - 6}" y="${y + 4}" text-anchor="end">${numeroCurto(max * i / 4)}</text>`;
   }
   categorias.forEach((cat, c) => {
     const x0 = mE + c * grupo + (grupo - barra * series.length) / 2;
@@ -634,7 +661,7 @@ function graficoBarras(categorias, series, opts = {}) {
       svg += `<text x="${mE + c * grupo + grupo / 2}" y="${mT + alt + 18 + k * 14}" text-anchor="middle">${esc(ln.length > 18 ? ln.slice(0, 17) + '…' : ln)}</text>`;
     });
   });
-  svg += `<line x1="${mE}" x2="${L - mD}" y1="${mT + alt}" y2="${mT + alt}" stroke="#a8a7a1"/></svg>`;
+  svg += `<line x1="${mE}" x2="${L - mD}" y1="${mT + alt}" y2="${mT + alt}" style="stroke:var(--eixo)"/></svg>`;
   return svg;
 }
 
@@ -651,20 +678,20 @@ function graficoDispersao(d) {
   let svg = `<svg viewBox="0 0 ${L} ${A}" role="img" aria-label="${esc(d.nomeY)} por ${esc(d.nomeX)}">`;
   for (let i = 0; i <= 4; i++) {
     const vy = y0 + (y1 - y0) * i / 4, vx = x0 + (x1 - x0) * i / 4;
-    svg += `<line x1="${mE}" x2="${L - mD}" y1="${py(vy)}" y2="${py(vy)}" stroke="#e4e3df"/>`;
+    svg += `<line x1="${mE}" x2="${L - mD}" y1="${py(vy)}" y2="${py(vy)}" style="stroke:var(--grade)"/>`;
     svg += `<text x="${mE - 6}" y="${py(vy) + 4}" text-anchor="end">${numeroCurto(vy)}</text>`;
     svg += `<text x="${px(vx)}" y="${mT + alt + 18}" text-anchor="middle">${numeroCurto(vx)}</text>`;
   }
-  svg += `<line x1="${mE}" x2="${L - mD}" y1="${mT + alt}" y2="${mT + alt}" stroke="#a8a7a1"/>`;
+  svg += `<line x1="${mE}" x2="${L - mD}" y1="${mT + alt}" y2="${mT + alt}" style="stroke:var(--eixo)"/>`;
   if (d.reta) {
     const [a, b] = d.reta, xa = x0 + fx, xb = x1 - fx;
-    svg += `<line x1="${px(xa)}" y1="${py(a + b * xa)}" x2="${px(xb)}" y2="${py(a + b * xb)}" stroke="#52514e" stroke-width="1.5" stroke-dasharray="6 5"/>`;
+    svg += `<line x1="${px(xa)}" y1="${py(a + b * xa)}" x2="${px(xb)}" y2="${py(a + b * xb)}" style="stroke:var(--texto-2)" stroke-width="1.5" stroke-dasharray="6 5"/>`;
   }
   d.pontos.forEach(p => {
-    svg += `<circle cx="${px(p.x)}" cy="${py(p.y)}" r="6" fill="${CORES[0]}" stroke="#fff" stroke-width="2"><title>${esc(p.nome)} – ${esc(d.nomeX)}: ${numeroCurto(p.x)}; ${esc(d.nomeY)}: ${numeroCurto(p.y)}</title></circle>`;
+    svg += `<circle cx="${px(p.x)}" cy="${py(p.y)}" r="6" fill="${CORES[0]}" style="stroke:var(--superficie)" stroke-width="2"><title>${esc(p.nome)} – ${esc(d.nomeX)}: ${numeroCurto(p.x)}; ${esc(d.nomeY)}: ${numeroCurto(p.y)}</title></circle>`;
   });
-  svg += `<text x="${mE + larg / 2}" y="${A - 6}" text-anchor="middle" style="fill:#1b1b19">${esc(d.nomeX)}</text>`;
-  svg += `<text transform="rotate(-90)" x="${-(mT + alt / 2)}" y="14" text-anchor="middle" style="fill:#1b1b19">${esc(d.nomeY)}</text></svg>`;
+  svg += `<text x="${mE + larg / 2}" y="${A - 6}" text-anchor="middle" style="fill:var(--texto)">${esc(d.nomeX)}</text>`;
+  svg += `<text transform="rotate(-90)" x="${-(mT + alt / 2)}" y="14" text-anchor="middle" style="fill:var(--texto)">${esc(d.nomeY)}</text></svg>`;
   return svg;
 }
 

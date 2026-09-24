@@ -3,6 +3,9 @@ package br.unit.eleicao.modelo;
 import br.unit.eleicao.util.Texto;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 /** Candidatura registrada no TSE para o cargo analisado. */
@@ -22,6 +25,7 @@ public class Candidato extends Pessoa {
     private Boolean reeleicao;
     private Double patrimonio;
     private Double patrimonioAnterior;
+    private final List<CandidaturaAnterior> trajetoria = new ArrayList<>();
     private Integer idDeputado;
     private String criterioVinculo;
 
@@ -183,6 +187,35 @@ public class Candidato extends Pessoa {
 
     public void setPatrimonioAnterior(Double patrimonioAnterior) {
         this.patrimonioAnterior = patrimonioAnterior;
+    }
+
+    public void adicionarCandidaturaAnterior(CandidaturaAnterior c) {
+        trajetoria.add(c);
+        Collections.sort(trajetoria);
+    }
+
+    /** Candidaturas anteriores encontradas, mais recentes primeiro (vazio = nenhuma encontrada). */
+    public List<CandidaturaAnterior> getTrajetoria() {
+        return Collections.unmodifiableList(trajetoria);
+    }
+
+    /** Mandato que a pessoa exerce hoje por eleição anterior (ex.: deputada estadual eleita em 2022), ou null. */
+    public CandidaturaAnterior getMandatoAtual(int anoReferencia) {
+        for (CandidaturaAnterior c : trajetoria) {
+            if (c.isEleito() && c.getAno() < anoReferencia && c.getFimMandato() >= anoReferencia) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    public boolean jaFoiEleito() {
+        for (CandidaturaAnterior c : trajetoria) {
+            if (c.isEleito()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public Integer getIdDeputado() {
