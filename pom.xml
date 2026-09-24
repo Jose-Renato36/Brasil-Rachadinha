@@ -6,7 +6,7 @@
 
     <groupId>br.unit.eleicao</groupId>
     <artifactId>decisao-eleitoral</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <packaging>jar</packaging>
     <name>Decisão Eleitoral - dados abertos</name>
 
@@ -16,7 +16,7 @@
         <junit.version>5.10.2</junit.version>
     </properties>
 
-    <!-- Nenhuma dependência em tempo de execução: só Java SE (java.net.http, java.util.zip, Swing). -->
+    <!-- Nenhuma dependência em tempo de execução: só Java SE (java.net.http, java.util.zip, com.sun.net.httpserver). -->
     <dependencies>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -32,6 +32,18 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
+            </plugin>
+            <!-- mvn compile exec:java  -> sobe o site em http://localhost:8080 -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <mainClass>br.unit.eleicao.App</mainClass>
+                    <arguments>
+                        <argument>web</argument>
+                    </arguments>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

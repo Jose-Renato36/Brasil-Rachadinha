@@ -37,6 +37,22 @@ public class VariacaoPatrimonio extends Indicador {
     }
 
     @Override
+    public String getTituloSimples() {
+        return "Patrimônio estável";
+    }
+
+    @Override
+    public String getPergunta() {
+        return "Quanto importa que os bens declarados não tenham crescido muito desde a última eleição?";
+    }
+
+    @Override
+    public String resumir(double valor) {
+        return (valor >= 0 ? "Bens cresceram " : "Bens diminuíram ") + Texto.percentual(Math.abs(valor))
+                + " desde a última eleição";
+    }
+
+    @Override
     public String formatar(double valor) {
         return String.format(Texto.PT_BR, "%+.1f%%", valor);
     }

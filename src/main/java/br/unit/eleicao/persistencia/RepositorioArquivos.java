@@ -41,6 +41,7 @@ public class RepositorioArquivos {
     public static final String DESPESAS = "despesas.csv";
     public static final String PROPOSICOES = "proposicoes.csv";
     public static final String POSICOES = "posicoes.csv";
+    public static final String EXERCICIOS = "exercicios.csv";
 
     // ------------------------------------------------------------------ leitura
 
@@ -51,6 +52,7 @@ public class RepositorioArquivos {
         BaseDados base = new BaseDados(lerMetadados(dir.resolve(META)));
         base.setDiretorio(dir);
         lerDeputados(base, dir.resolve(DEPUTADOS));
+        lerExercicios(base, dir.resolve(EXERCICIOS));
         lerCandidatos(base, dir.resolve(CANDIDATOS));
         lerVotacoes(base, dir.resolve(VOTACOES));
         lerVotos(base, dir.resolve(VOTOS));
@@ -100,6 +102,8 @@ public class RepositorioArquivos {
             int iPatAnt = csv.indice("patrimonioAnterior");
             int iDep = csv.indice("idDeputado");
             int iCrit = csv.indice("criterioVinculo");
+            int iDetalhe = csv.indiceOpcional("detalheSituacao");
+            int iReeleicao = csv.indiceOpcional("reeleicao");
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
                 Candidato c = new Candidato(LeitorCsv.campo(l, iSq), LeitorCsv.campo(l, iNome),
@@ -113,6 +117,9 @@ public class RepositorioArquivos {
                 c.setCorRaca(LeitorCsv.campo(l, iCor));
                 c.setOcupacao(LeitorCsv.campo(l, iOcup));
                 c.setSituacao(LeitorCsv.campo(l, iSit));
+                c.setDetalheSituacao(LeitorCsv.campo(l, iDetalhe));
+                String reeleicao = LeitorCsv.campo(l, iReeleicao);
+                c.setReeleicao(reeleicao.isEmpty() ? null : Boolean.parseBoolean(reeleicao));
                 c.setPatrimonio(Texto.parseDecimal(LeitorCsv.campo(l, iPat)));
                 c.setPatrimonioAnterior(Texto.parseDecimal(LeitorCsv.campo(l, iPatAnt)));
                 Integer idDep = Texto.parseInteiro(LeitorCsv.campo(l, iDep));
@@ -136,6 +143,7 @@ public class RepositorioArquivos {
             int iUf = csv.indice("uf");
             int iNasc = csv.indice("dataNascimento");
             int iGenero = csv.indice("genero");
+            int iFoto = csv.indiceOpcional("urlFoto");
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
                 Integer id = Texto.parseInteiro(LeitorCsv.campo(l, iId));
@@ -146,7 +154,28 @@ public class RepositorioArquivos {
                         Texto.parseData(LeitorCsv.campo(l, iNasc)), LeitorCsv.campo(l, iGenero));
                 d.setPartido(LeitorCsv.campo(l, iPartido));
                 d.setUf(LeitorCsv.campo(l, iUf));
+                d.setUrlFoto(LeitorCsv.campo(l, iFoto));
                 base.adicionarDeputado(d);
+            }
+        }
+    }
+
+    private void lerExercicios(BaseDados base, Path arquivo) throws ArquivoInvalidoException {
+        if (!Files.exists(arquivo)) {
+            return;
+        }
+        try (LeitorCsv csv = new LeitorCsv(arquivo, StandardCharsets.UTF_8)) {
+            int iDep = csv.indice("idDeputado");
+            int iIni = csv.indice("inicio");
+            int iFim = csv.indice("fim");
+            String[] l;
+            while ((l = csv.proximaLinha()) != null) {
+                Deputado d = base.getDeputado(Texto.parseInteiro(LeitorCsv.campo(l, iDep)));
+                LocalDate ini = Texto.parseData(LeitorCsv.campo(l, iIni));
+                LocalDate fim = Texto.parseData(LeitorCsv.campo(l, iFim));
+                if (d != null && ini != null && fim != null) {
+                    d.adicionarExercicio(ini, fim);
+                }
             }
         }
     }
@@ -159,10 +188,14 @@ public class RepositorioArquivos {
             int iId = csv.indice("id");
             int iData = csv.indice("data");
             int iDesc = csv.indice("descricao");
+            int iProp = csv.indiceOpcional("proposicao");
+            int iEmenta = csv.indiceOpcional("ementa");
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
-                base.adicionarVotacao(new Votacao(LeitorCsv.campo(l, iId), Texto.parseData(LeitorCsv.campo(l, iData)),
-                        LeitorCsv.campo(l, iDesc)));
+                Votacao v = new Votacao(LeitorCsv.campo(l, iId), Texto.parseData(LeitorCsv.campo(l, iData)),
+                        LeitorCsv.campo(l, iDesc));
+                v.setProposicao(LeitorCsv.campo(l, iProp), LeitorCsv.campo(l, iEmenta));
+                base.adicionarVotacao(v);
             }
         }
     }
@@ -275,25 +308,34 @@ public class RepositorioArquivos {
         salvarMetadados(base.getMetadados(), dir.resolve(META));
 
         try (EscritorCsv csv = new EscritorCsv(dir.resolve(DEPUTADOS),
-                "id", "nomeParlamentar", "nomeCivil", "partido", "uf", "dataNascimento", "genero")) {
+                "id", "nomeParlamentar", "nomeCivil", "partido", "uf", "dataNascimento", "genero", "urlFoto")) {
             for (Deputado d : base.getDeputados()) {
                 csv.escrever(d.getId(), d.getNomeParlamentar(), d.getNome(), d.getPartido(), d.getUf(),
-                        d.getDataNascimento(), d.getGenero());
+                        d.getDataNascimento(), d.getGenero(), d.getUrlFoto());
+            }
+        }
+        try (EscritorCsv csv = new EscritorCsv(dir.resolve(EXERCICIOS), "idDeputado", "inicio", "fim")) {
+            for (Deputado d : base.getDeputados()) {
+                for (LocalDate[] p : d.getExercicios()) {
+                    csv.escrever(d.getId(), p[0], p[1]);
+                }
             }
         }
         try (EscritorCsv csv = new EscritorCsv(dir.resolve(CANDIDATOS), "sq", "nome", "nomeUrna", "numero", "partido",
                 "uf", "cargo", "dataNascimento", "genero", "grauInstrucao", "corRaca", "ocupacao", "situacao",
-                "patrimonio", "patrimonioAnterior", "idDeputado", "criterioVinculo")) {
+                "patrimonio", "patrimonioAnterior", "idDeputado", "criterioVinculo", "detalheSituacao", "reeleicao")) {
             for (Candidato c : base.getCandidatos()) {
                 csv.escrever(c.getSq(), c.getNome(), c.getNomeUrna(), c.getNumero(), c.getPartido(), c.getUf(),
                         c.getCargo(), c.getDataNascimento(), c.getGenero(), c.getGrauInstrucao().name(),
                         c.getCorRaca(), c.getOcupacao(), c.getSituacao(), c.getPatrimonio(),
-                        c.getPatrimonioAnterior(), c.getIdDeputado(), c.getCriterioVinculo());
+                        c.getPatrimonioAnterior(), c.getIdDeputado(), c.getCriterioVinculo(), c.getDetalheSituacao(),
+                        c.getReeleicao());
             }
         }
-        try (EscritorCsv csv = new EscritorCsv(dir.resolve(VOTACOES), "id", "data", "descricao")) {
+        try (EscritorCsv csv = new EscritorCsv(dir.resolve(VOTACOES), "id", "data", "descricao", "proposicao",
+                "ementa")) {
             for (Votacao v : base.getVotacoesOrdenadas()) {
-                csv.escrever(v.getId(), v.getData(), v.getDescricao());
+                csv.escrever(v.getId(), v.getData(), v.getDescricao(), v.getProposicao(), v.getEmenta());
             }
         }
         try (EscritorCsv csv = new EscritorCsv(dir.resolve(VOTOS), "idVotacao", "idDeputado", "voto")) {

@@ -32,13 +32,13 @@ public final class Texto {
                 .trim();
     }
 
-    /** O TSE usa marcadores como #NULO#, #NE# e -1/-3/-4 para "não informado". */
+    /** O TSE usa marcadores como #NULO, #NE (às vezes com # no fim) e -1/-3/-4 para "não informado". */
     public static String limparTse(String s) {
         if (s == null) {
             return "";
         }
         String t = s.strip();
-        if (t.startsWith("#") && t.endsWith("#")) {
+        if (t.startsWith("#")) {
             return "";
         }
         if (t.equals("-1") || t.equals("-3") || t.equals("-4")) {

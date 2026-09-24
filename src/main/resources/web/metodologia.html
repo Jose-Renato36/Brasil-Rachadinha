@@ -18,19 +18,19 @@ não um veredito.</p>
 <h2>Indicadores</h2>
 <table border="1" cellpadding="5" cellspacing="0">
 <tr><th>Indicador</th><th>Cálculo</th><th>Sentido padrão</th></tr>
-<tr><td>Assiduidade</td><td>votações nominais do Plenário com voto registrado ÷ votações ocorridas entre o
-  primeiro e o último voto do deputado</td><td>maior é melhor</td></tr>
-<tr><td>Gasto da cota</td><td>z-score do gasto médio mensal (total ÷ meses com despesa) em relação aos
+<tr><td>Presença nas votações</td><td>votações nominais do Plenário com voto registrado ÷ votações ocorridas
+  enquanto o deputado estava <b>em exercício</b> (licenças e suplências não contam como falta, pelo histórico da Câmara)</td><td>maior é melhor</td></tr>
+<tr><td>Economia da verba de gabinete</td><td>z-score do gasto médio mensal (total ÷ meses com despesa) em relação aos
   deputados da mesma UF. z = (x − média) ÷ desvio-padrão</td><td>menor é melhor</td></tr>
-<tr><td>Produção legislativa</td><td>número de proposições (PL, PLP, PEC, PDL, PRC) em que é autor proponente;
+<tr><td>Projetos apresentados</td><td>número de proposições (PL, PLP, PEC, PDL, PRC) em que é autor proponente;
   as aprovadas aparecem no perfil</td><td>maior é melhor</td></tr>
-<tr><td>Variação de patrimônio</td><td>(bens atuais − bens da eleição anterior) ÷ bens da eleição anterior</td>
+<tr><td>Patrimônio estável</td><td>(bens atuais − bens da eleição anterior) ÷ bens da eleição anterior</td>
   <td>menor é melhor</td></tr>
-<tr><td>Alinhamento por pauta</td><td>% dos votos Sim/Não do deputado iguais à posição que <i>você</i> marcou</td>
+<tr><td>Vota como eu votaria</td><td>% dos votos Sim/Não do deputado iguais à resposta que <i>você</i> deu em “Minhas opiniões”</td>
   <td>maior é melhor</td></tr>
 <tr><td>Elegibilidade</td><td>situação da candidatura no TSE. <b>É filtro, não nota.</b></td><td>—</td></tr>
 </table>
-<p>Qualquer sentido pode ser invertido na tela de ranking (por exemplo, se para você gastar a cota
+<p>Qualquer sentido pode ser invertido em “O que importa pra mim” › Opções avançadas (por exemplo, se para você gastar a cota
 é sinal de atuação e não de desperdício).</p>
 <p><b>"Aprovada"</b> = proposição transformada em norma jurídica ou aprovada na Câmara e enviada ao Senado,
 à sanção ou à promulgação, conforme a última situação informada pela Câmara.</p>
@@ -53,17 +53,19 @@ zero. Zero significaria desempenho ruim, e ausência de informação não é des
 
 <h2>Limites conhecidos</h2>
 <ul>
-  <li><b>Viés contra estreantes:</b> quem nunca teve mandato não tem assiduidade, cota, produção nem votos.
-      A soma ponderada ignora esses indicadores para essas pessoas, então um estreante pode ser pontuado só
-      pela variação de patrimônio e ficar à frente de quem é avaliado em quatro indicadores. A opção
-      <i>cobertura mínima</i> na tela de ranking deixa você decidir: com 1, todos entram; com 2 ou mais, só
-      quem tem dados suficientes é pontuado (e os estreantes saem da lista). Nenhuma das duas escolhas é neutra.</li>
+  <li><b>Viés contra estreantes:</b> quem nunca teve mandato não tem presença, verba, projetos nem votos.
+      A média ponderada ignora esses critérios para essas pessoas, então um estreante poderia receber nota só
+      pela variação de patrimônio e ficar à frente de quem é avaliado em quatro critérios. Por isso, por padrão,
+      só recebe nota quem tem dados em pelo menos <b>2 critérios</b>; quem não tem aparece no fim da lista, sem nota.
+      Você pode mudar isso em Opções avançadas (com 1, todos entram). Nenhuma das duas escolhas é neutra.</li>
   <li><b>Dados autodeclarados:</b> bens, escolaridade, ocupação, gênero e cor/raça são declarados pelo próprio
       candidato ao TSE e não são verificados aqui. Bens estão a valor histórico, sem correção pela inflação.</li>
   <li><b>Quantidade não é qualidade:</b> muitas proposições não significam boas proposições, e presença não
       significa bom voto.</li>
-  <li><b>Assiduidade aproximada:</b> o período de exercício é estimado pelo primeiro e último voto; licenças no
-      meio do mandato contam como ausência. Faltas justificadas não são distinguidas.</li>
+  <li><b>Presença:</b> conta só votações nominais do Plenário; faltas justificadas não são distinguidas. Se o
+      histórico de licenças não puder ser baixado, o período é estimado pelo primeiro e último voto (o perfil avisa).</li>
+  <li><b>Votações “principais”:</b> em “Minhas opiniões” sugerimos primeiro as votações do texto do projeto
+      (e não de requerimentos e destaques), escolhidas pela descrição oficial. É só uma sugestão: todas podem ser buscadas.</li>
   <li><b>Cruzamento TSE × Câmara:</b> feito por CPF quando disponível, depois por nome civil + data de
       nascimento. Vínculos só por nome aparecem com ⚠ e vão para <code>vinculos_para_conferir.csv</code>;
       correções manuais podem ser feitas em <code>dados/vinculos_manuais.csv</code>.</li>

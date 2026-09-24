@@ -46,6 +46,21 @@ public class ProducaoLegislativa extends Indicador {
     }
 
     @Override
+    public String getTituloSimples() {
+        return "Projetos apresentados";
+    }
+
+    @Override
+    public String getPergunta() {
+        return "Quanto importa que a pessoa apresente projetos de lei?";
+    }
+
+    @Override
+    public String resumir(double valor) {
+        return String.format("Apresentou %.0f projeto%s", valor, valor == 1 ? "" : "s");
+    }
+
+    @Override
     public String formatar(double valor) {
         return String.format("%.0f", valor);
     }

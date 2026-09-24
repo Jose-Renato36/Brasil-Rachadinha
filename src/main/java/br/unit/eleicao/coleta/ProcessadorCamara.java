@@ -12,6 +12,7 @@ import br.unit.eleicao.util.Texto;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -23,6 +24,7 @@ import java.util.function.Consumer;
 /**
  * Lê os arquivos em lote da Câmara (já baixados) e guarda na base só o que é da UF escolhida:
  * deputados, votações nominais do Plenário, votos, despesas de cota e proposições de autoria.
+ * Colunas conferidas: veja docs/FONTES.md.
  */
 public class ProcessadorCamara {
 
@@ -32,21 +34,28 @@ public class ProcessadorCamara {
     private final Path pasta;
     private final String uf;
     private final int[] anos;
+    private final int legislatura;
+    private final LocalDate inicioLegislatura;
     private final Consumer<String> log;
 
     private final Map<Integer, Deputado> deputados = new LinkedHashMap<>();
+    private final Map<Integer, String> ultimoVoto = new HashMap<>();
     private final Map<Integer, String> cpfPorDeputado = new HashMap<>();
 
-    public ProcessadorCamara(Path pasta, String uf, int[] anos, Consumer<String> log) {
+    public ProcessadorCamara(Path pasta, String uf, int[] anos, int legislatura, LocalDate inicioLegislatura,
+                             Consumer<String> log) {
         this.pasta = pasta;
         this.uf = uf.toUpperCase();
         this.anos = anos.clone();
+        this.legislatura = legislatura;
+        this.inicioLegislatura = inicioLegislatura;
         this.log = log;
     }
 
     public void processar(BaseDados base) throws ArquivoInvalidoException {
         for (int ano : anos) {
-            Set<String> plenario = lerVotacoesPlenario(base, ano);
+            Map<String, Votacao> plenario = lerVotacoesPlenario(ano);
+            lerProposicoesDasVotacoes(ano, plenario);
             lerVotos(base, ano, plenario);
             lerCota(base, ano);
         }
@@ -64,6 +73,10 @@ public class ProcessadorCamara {
     /** CPF de cada deputado (usado apenas para cruzar com o TSE; não é gravado nos arquivos processados). */
     public Map<Integer, String> getCpfPorDeputado() {
         return cpfPorDeputado;
+    }
+
+    public Map<Integer, Deputado> getDeputados() {
+        return deputados;
     }
 
     private Path local(String url) {
@@ -86,8 +99,9 @@ public class ProcessadorCamara {
         });
     }
 
-    private Set<String> lerVotacoesPlenario(BaseDados base, int ano) throws ArquivoInvalidoException {
-        Set<String> ids = new HashSet<>();
+    /** Votações do Plenário ocorridas na legislatura. Só entram na base as que tiverem voto da UF. */
+    private Map<String, Votacao> lerVotacoesPlenario(int ano) throws ArquivoInvalidoException {
+        Map<String, Votacao> ids = new HashMap<>();
         Path arquivo = local(FontesDados.votacoes(ano));
         if (!disponivel(arquivo)) {
             return ids;
@@ -99,22 +113,43 @@ public class ProcessadorCamara {
             int iDesc = csv.indiceOpcional("descricao");
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
-                if ("PLEN".equalsIgnoreCase(LeitorCsv.campo(l, iOrgao))) {
+                LocalDate data = Texto.parseData(LeitorCsv.campo(l, iData));
+                if ("PLEN".equalsIgnoreCase(LeitorCsv.campo(l, iOrgao)) && data != null
+                        && !data.isBefore(inicioLegislatura)) {
                     String id = LeitorCsv.campo(l, iId);
-                    ids.add(id);
-                    base.adicionarVotacao(new Votacao(id, Texto.parseData(LeitorCsv.campo(l, iData)),
-                            LeitorCsv.campo(l, iDesc)));
+                    ids.put(id, new Votacao(id, data, LeitorCsv.campo(l, iDesc)));
                 }
             }
         }
         return ids;
     }
 
-    private void lerVotos(BaseDados base, int ano, Set<String> plenario) throws ArquivoInvalidoException {
+    /** votacoesProposicoes: dá à votação o nome da proposição (ex.: "PL 1087/2025") e a ementa. */
+    private void lerProposicoesDasVotacoes(int ano, Map<String, Votacao> plenario) throws ArquivoInvalidoException {
+        Path arquivo = local(FontesDados.votacoesProposicoes(ano));
+        if (plenario.isEmpty() || !disponivel(arquivo)) {
+            return;
+        }
+        try (LeitorCsv csv = ArquivosBrutos.abrir(arquivo, StandardCharsets.UTF_8, ".csv")) {
+            int iVot = csv.indice("idVotacao");
+            int iTitulo = csv.indiceOpcional("proposicao_titulo");
+            int iEmenta = csv.indiceOpcional("proposicao_ementa");
+            String[] l;
+            while ((l = csv.proximaLinha()) != null) {
+                Votacao v = plenario.get(LeitorCsv.campo(l, iVot));
+                if (v != null && v.getProposicao().isEmpty()) {
+                    v.setProposicao(LeitorCsv.campo(l, iTitulo), LeitorCsv.campo(l, iEmenta));
+                }
+            }
+        }
+    }
+
+    private void lerVotos(BaseDados base, int ano, Map<String, Votacao> plenario) throws ArquivoInvalidoException {
         Path arquivo = local(FontesDados.votos(ano));
         if (plenario.isEmpty() || !disponivel(arquivo)) {
             return;
         }
+        String leg = String.valueOf(legislatura);
         try (LeitorCsv csv = ArquivosBrutos.abrir(arquivo, StandardCharsets.UTF_8, ".csv")) {
             int iVot = csv.indice("idVotacao");
             int iVoto = csv.indice("voto");
@@ -122,19 +157,37 @@ public class ProcessadorCamara {
             int iNome = csv.indice("deputado_nome");
             int iPartido = csv.indice("deputado_siglaPartido");
             int iUf = csv.indice("deputado_siglaUf");
+            int iLeg = csv.indiceOpcional("deputado_idLegislatura");
+            int iFoto = csv.indiceOpcional("deputado_urlFoto");
+            int iHora = csv.indiceOpcional("dataHoraVoto");
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
                 if (!uf.equalsIgnoreCase(LeitorCsv.campo(l, iUf))) {
                     continue;
                 }
-                String idVotacao = LeitorCsv.campo(l, iVot);
+                if (iLeg >= 0 && !leg.equals(LeitorCsv.campo(l, iLeg))) {
+                    continue;
+                }
+                Votacao votacao = plenario.get(LeitorCsv.campo(l, iVot));
                 Integer id = Texto.parseInteiro(LeitorCsv.campo(l, iDep));
-                if (id == null || !plenario.contains(idVotacao)) {
+                if (id == null || votacao == null) {
                     continue;
                 }
                 Deputado d = deputado(id, LeitorCsv.campo(l, iNome));
-                d.setPartido(LeitorCsv.campo(l, iPartido));
-                base.adicionarVoto(id, idVotacao, LeitorCsv.campo(l, iVoto));
+                // o voto mais recente define partido e foto atuais
+                String hora = LeitorCsv.campo(l, iHora);
+                if (hora.compareTo(ultimoVoto.getOrDefault(id, "")) >= 0) {
+                    ultimoVoto.put(id, hora);
+                    d.setPartido(LeitorCsv.campo(l, iPartido));
+                    String foto = LeitorCsv.campo(l, iFoto);
+                    if (!foto.isEmpty()) {
+                        d.setUrlFoto(foto);
+                    }
+                }
+                if (base.getVotacao(votacao.getId()) == null) {
+                    base.adicionarVotacao(votacao);
+                }
+                base.adicionarVoto(id, votacao.getId(), LeitorCsv.campo(l, iVoto));
             }
         }
     }
@@ -148,7 +201,7 @@ public class ProcessadorCamara {
         Map<String, Double> somas = new TreeMap<>();
         try (LeitorCsv csv = ArquivosBrutos.abrir(arquivo, StandardCharsets.UTF_8, ".csv")) {
             int iUf = csv.indice("sgUF");
-            int iId = csv.indice("ideCadastro", "nuDeputadoId");
+            int iId = csv.indice("ideCadastro");
             int iNome = csv.indice("txNomeParlamentar");
             int iCpf = csv.indiceOpcional("cpf");
             int iPartido = csv.indiceOpcional("sgPartido");
@@ -161,11 +214,16 @@ public class ProcessadorCamara {
                 if (!uf.equalsIgnoreCase(LeitorCsv.campo(l, iUf))) {
                     continue;
                 }
+                // lideranças partidárias também usam a cota e vêm sem ideCadastro: não são deputados
                 Integer id = Texto.parseInteiro(LeitorCsv.campo(l, iId));
                 Integer mes = Texto.parseInteiro(LeitorCsv.campo(l, iMes));
                 Integer anoDesp = Texto.parseInteiro(LeitorCsv.campo(l, iAno));
                 Double valor = Texto.parseDecimal(LeitorCsv.campo(l, iValor));
-                if (id == null || mes == null || anoDesp == null || valor == null) {
+                if (id == null || mes == null || anoDesp == null || valor == null || mes < 1 || mes > 12) {
+                    continue;
+                }
+                // janeiro de 2023 ainda é da legislatura anterior
+                if (LocalDate.of(anoDesp, mes, 1).isBefore(inicioLegislatura.withDayOfMonth(1))) {
                     continue;
                 }
                 Deputado d = deputado(id, LeitorCsv.campo(l, iNome));
@@ -252,6 +310,7 @@ public class ProcessadorCamara {
             int iNum = csv.indice("numero");
             int iAno = csv.indice("ano");
             int iEmenta = csv.indiceOpcional("ementa");
+            int iApresentacao = csv.indiceOpcional("dataApresentacao");
             int iSit = csv.indiceOpcional("ultimoStatus_descricaoSituacao");
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
@@ -259,6 +318,10 @@ public class ProcessadorCamara {
                 Set<Integer> autores = autoresPorProposicao.get(id);
                 String tipo = LeitorCsv.campo(l, iTipo).toUpperCase();
                 if (autores == null || !TIPOS.contains(tipo)) {
+                    continue;
+                }
+                LocalDate apresentacao = Texto.parseData(LeitorCsv.campo(l, iApresentacao));
+                if (apresentacao != null && apresentacao.isBefore(inicioLegislatura)) {
                     continue;
                 }
                 String situacao = LeitorCsv.campo(l, iSit);
@@ -281,6 +344,7 @@ public class ProcessadorCamara {
         return s.contains("TRANSFORMAD") && s.contains("NORMA")
                 || s.contains("APRECIACAO PELO SENADO")
                 || s.contains("REMETIDA AO SENADO")
+                || s.contains("ENVIADA AO SENADO")
                 || s.contains("AGUARDANDO SANCAO")
                 || s.contains("AGUARDANDO PROMULGACAO");
     }

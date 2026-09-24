@@ -8,10 +8,6 @@ import java.util.Objects;
 /** Candidatura registrada no TSE para o cargo analisado. */
 public class Candidato extends Pessoa {
 
-    private static final String[] SITUACOES_INAPTAS = {
-        "INAPTO", "INDEFERIDO", "CANCELADO", "CASSADO", "RENUNCIA", "FALECIDO", "NAO CONHECIMENTO"
-    };
-
     private final String sq;
     private String nomeUrna;
     private String numero;
@@ -22,6 +18,8 @@ public class Candidato extends Pessoa {
     private String corRaca;
     private String ocupacao;
     private String situacao;
+    private String detalheSituacao;
+    private Boolean reeleicao;
     private Double patrimonio;
     private Double patrimonioAnterior;
     private Integer idDeputado;
@@ -34,14 +32,12 @@ public class Candidato extends Pessoa {
     }
 
     /** Situação da candidatura usada como filtro (nunca como nota). */
+    public Elegibilidade getElegibilidade() {
+        return Elegibilidade.de(situacao, detalheSituacao);
+    }
+
     public boolean isInapta() {
-        String s = Texto.normalizar(situacao);
-        for (String inapta : SITUACOES_INAPTAS) {
-            if (s.contains(inapta)) {
-                return true;
-            }
-        }
-        return false;
+        return getElegibilidade() == Elegibilidade.INAPTA;
     }
 
     public boolean temMandatoNaCamara() {
@@ -154,6 +150,23 @@ public class Candidato extends Pessoa {
 
     public void setSituacao(String situacao) {
         this.situacao = situacao;
+    }
+
+    public String getDetalheSituacao() {
+        return detalheSituacao;
+    }
+
+    public void setDetalheSituacao(String detalheSituacao) {
+        this.detalheSituacao = detalheSituacao;
+    }
+
+    /** Se o TSE informa que a pessoa tenta a reeleição (arquivo complementar); null = não informado. */
+    public Boolean getReeleicao() {
+        return reeleicao;
+    }
+
+    public void setReeleicao(Boolean reeleicao) {
+        this.reeleicao = reeleicao;
     }
 
     public Double getPatrimonio() {

@@ -80,12 +80,14 @@ public class GeradorDadosDemo {
     private List<Votacao> gerarVotacoes(BaseDados base, int quantidade) {
         List<Votacao> lista = new ArrayList<>();
         LocalDate inicio = LocalDate.of(2023, 2, 7);
+        String[] tipos = {"Aprovado o Projeto de Lei", "Rejeitado o Requerimento de retirada de pauta",
+            "Aprovada a Emenda", "Mantido o texto (destaque)", "Aprovada a Redação Final"};
         for (int i = 0; i < quantidade; i++) {
             LocalDate data = inicio.plusDays(i * 8L + rnd.nextInt(5));
             String tema = TEMAS[rnd.nextInt(TEMAS.length)];
-            String descricao = String.format("[FICTÍCIA] Votação %03d - PL %d/%d sobre %s", i + 1,
-                    1000 + rnd.nextInt(4000), data.getYear(), tema);
-            Votacao v = new Votacao("DEMO-" + (i + 1), data, descricao);
+            String proposicao = "PL " + (1000 + rnd.nextInt(4000)) + "/" + data.getYear();
+            Votacao v = new Votacao("DEMO-" + (i + 1), data, tipos[i % 3 == 0 ? 0 : rnd.nextInt(tipos.length)] + ".");
+            v.setProposicao(proposicao, "[FICTÍCIA] Dispõe sobre " + tema + ".");
             base.adicionarVotacao(v);
             lista.add(v);
         }
@@ -97,8 +99,18 @@ public class GeradorDadosDemo {
         double presenca = 0.60 + 0.38 * rnd.nextDouble();
         double posicao = rnd.nextGaussian();
         int primeira = suplente ? votacoes.size() / 2 : 0;
+        LocalDate inicioMandato = suplente ? votacoes.get(primeira).getData() : LocalDate.of(2023, 2, 1);
+        LocalDate fimMandato = LocalDate.of(2026, 9, 1);
+        // um dos deputados tirou licença de 4 meses: essas votações não contam como falta
+        boolean licenciado = d.getId() == 9003;
+        if (licenciado) {
+            d.adicionarExercicio(inicioMandato, LocalDate.of(2024, 3, 1));
+            d.adicionarExercicio(LocalDate.of(2024, 7, 1), fimMandato);
+        } else {
+            d.adicionarExercicio(inicioMandato, fimMandato);
+        }
         for (int i = primeira; i < votacoes.size(); i++) {
-            if (rnd.nextDouble() > presenca) {
+            if (rnd.nextDouble() > presenca || !d.emExercicio(votacoes.get(i).getData())) {
                 continue;
             }
             double sorteio = rnd.nextDouble();
@@ -149,7 +161,19 @@ public class GeradorDadosDemo {
         c.setGrauInstrucao(escolaridade());
         c.setCorRaca(rnd.nextDouble() < 0.08 ? CORES[3 + rnd.nextInt(2)] : CORES[rnd.nextInt(3)]);
         c.setOcupacao(deputado != null ? "DEPUTADO" : OCUPACOES[rnd.nextInt(OCUPACOES.length)]);
-        c.setSituacao(i == 13 || i == 22 ? "INAPTO (INDEFERIDO)" : i % 6 == 5 ? "CADASTRADO" : "APTO (DEFERIDO)");
+        if (i == 13 || i == 22) {
+            c.setSituacao("INAPTO");
+            c.setDetalheSituacao("INDEFERIDO");
+        } else if (i == 17) {
+            c.setSituacao("APTO");
+            c.setDetalheSituacao("INDEFERIDO COM RECURSO");
+        } else if (i % 6 == 5) {
+            c.setSituacao("CADASTRADO");
+        } else {
+            c.setSituacao("APTO");
+            c.setDetalheSituacao("DEFERIDO");
+        }
+        c.setReeleicao(deputado != null);
         double patrimonio = Math.round(Math.exp(11.5 + 1.6 * rnd.nextGaussian()));
         c.setPatrimonio(patrimonio);
         if (deputado != null || rnd.nextDouble() < 0.4) {

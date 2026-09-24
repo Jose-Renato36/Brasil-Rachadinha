@@ -30,6 +30,20 @@ class IndicadoresTest {
     }
 
     @Test
+    void assiduidadeDesconsideraLicencas() {
+        BaseDados base = BaseTeste.nova();
+        BaseTeste.votacoes(base, 10); // V1..V10 de 01/03 a 10/03/2023
+        BaseTeste.deputado(base, 1).adicionarExercicio(java.time.LocalDate.of(2023, 3, 1), java.time.LocalDate.of(2023, 3, 4));
+        base.getDeputado(1).adicionarExercicio(java.time.LocalDate.of(2023, 3, 9), java.time.LocalDate.of(2023, 3, 10));
+        Candidato c = BaseTeste.candidato(base, "A", 1);
+        // em exercício em V1-V4 e V9-V10 (6 votações); votou em 3 delas
+        base.adicionarVoto(1, "V1", "Sim");
+        base.adicionarVoto(1, "V2", "Sim");
+        base.adicionarVoto(1, "V9", "Não");
+        assertEquals(50.0, new Assiduidade().calcular(c, base).getValor(), 1e-9);
+    }
+
+    @Test
     void semMandatoEhSemDadosENaoZero() {
         BaseDados base = BaseTeste.nova();
         Candidato estreante = BaseTeste.candidato(base, "E", null);

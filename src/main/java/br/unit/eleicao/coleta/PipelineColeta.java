@@ -50,6 +50,15 @@ public class PipelineColeta {
         return new int[]{anoEleicao - 3, anoEleicao - 2, anoEleicao - 1, anoEleicao};
     }
 
+    /** Legislatura da Câmara que termina no ano da eleição (2023-2027 = 57ª). */
+    public static int legislatura(int anoEleicao) {
+        return 57 + (anoEleicao - 2026) / 4;
+    }
+
+    public static LocalDate inicioLegislatura(int anoEleicao) {
+        return LocalDate.of(anoEleicao - 3, 2, 1);
+    }
+
     /** 1º turno: primeiro domingo de outubro. */
     public static LocalDate dataPrimeiroTurno(int ano) {
         return LocalDate.of(ano, 10, 1).with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
@@ -73,8 +82,14 @@ public class PipelineColeta {
         tse.processar(base);
 
         log.accept("Processando Câmara...");
-        ProcessadorCamara camara = new ProcessadorCamara(pastaBrutos(), uf, anos, log);
+        ProcessadorCamara camara = new ProcessadorCamara(pastaBrutos(), uf, anos, legislatura(anoEleicao),
+                inicioLegislatura(anoEleicao), log);
         camara.processar(base);
+        log.accept(baixar ? "Consultando licenças e reassunções dos deputados (API da Câmara)..."
+                : "Lendo licenças e reassunções já baixadas (sem download)...");
+        LocalDate fim = LocalDate.now().isBefore(meta.getDataEleicao()) ? LocalDate.now() : meta.getDataEleicao();
+        new HistoricoDeputados(pastaBrutos(), baixar ? new Downloader(log) : null, log)
+                .preencher(camara.getDeputados().values(), legislatura(anoEleicao), inicioLegislatura(anoEleicao), fim);
 
         log.accept("Cruzando candidaturas com deputados...");
         CruzadorIdentidades cruzador = new CruzadorIdentidades();
@@ -104,12 +119,20 @@ public class PipelineColeta {
         Path pasta = pastaBrutos();
         log.accept("Baixando arquivos do TSE (podem ter centenas de MB)...");
         // sem as candidaturas atuais não há o que analisar: essa falha interrompe a coleta
-        downloader.baixar(FontesDados.candidatos(anoEleicao), pasta, false);
+        try {
+            downloader.baixar(FontesDados.candidatos(anoEleicao), pasta, false);
+        } catch (ColetaException e) {
+            throw new ColetaException(e.getMessage() + "\nSe o site do TSE recusar o download, abra "
+                    + FontesDados.paginaTse(anoEleicao) + " no navegador, baixe os arquivos .zip e coloque em "
+                    + pasta.toAbsolutePath() + " (sem renomear). Depois colete sem download.", e);
+        }
         List<String> opcionais = new ArrayList<>(List.of(FontesDados.bens(anoEleicao),
+                FontesDados.candidatosComplementar(anoEleicao),
                 FontesDados.candidatos(anoAnterior), FontesDados.bens(anoAnterior), FontesDados.deputados()));
         for (int ano : anos) {
             opcionais.add(FontesDados.votacoes(ano));
             opcionais.add(FontesDados.votos(ano));
+            opcionais.add(FontesDados.votacoesProposicoes(ano));
             opcionais.add(FontesDados.cota(ano));
             opcionais.add(FontesDados.proposicoes(ano));
             opcionais.add(FontesDados.autores(ano));

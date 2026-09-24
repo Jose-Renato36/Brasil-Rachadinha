@@ -53,6 +53,19 @@ public abstract class Indicador {
         return r != null && r.temDados() ? formatar(r.getValor()) : "sem dados";
     }
 
+    /** Nome do indicador em linguagem do dia a dia, para a tela de pesos. */
+    public abstract String getTituloSimples();
+
+    /** Pergunta que o usuário responde ao dar peso a este indicador. */
+    public abstract String getPergunta();
+
+    /** Frase curta que descreve o valor para quem não conhece o indicador (ex.: "Votou em 88% das votações"). */
+    public abstract String resumir(double valor);
+
+    public String resumir(ResultadoIndicador r) {
+        return r != null && r.temDados() ? resumir(r.getValor()) : "Sem dados";
+    }
+
     /** Deputado vinculado ao candidato, ou null para quem não teve mandato na legislatura. */
     protected Deputado deputadoDe(Candidato c, BaseDados base) {
         return base.getDeputadoDe(c);

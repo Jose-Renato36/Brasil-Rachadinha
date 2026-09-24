@@ -24,6 +24,16 @@ public final class FontesDados {
         return CAMARA + "votacoesVotos/csv/votacoesVotos-" + ano + ".csv";
     }
 
+    /** Liga cada votação à proposição votada (título e ementa legíveis). */
+    public static String votacoesProposicoes(int ano) {
+        return CAMARA + "votacoesProposicoes/csv/votacoesProposicoes-" + ano + ".csv";
+    }
+
+    /** API: histórico de situações do deputado (posse, licença, reassunção), em JSON. */
+    public static String historicoDeputado(int id) {
+        return "https://dadosabertos.camara.leg.br/api/v2/deputados/" + id + "/historico";
+    }
+
     public static String proposicoes(int ano) {
         return CAMARA + "proposicoes/csv/proposicoes-" + ano + ".csv";
     }
@@ -38,6 +48,15 @@ public final class FontesDados {
 
     public static String candidatos(int ano) {
         return TSE + "consulta_cand/consulta_cand_" + ano + ".zip";
+    }
+
+    public static String candidatosComplementar(int ano) {
+        return TSE + "consulta_cand_complementar/consulta_cand_complementar_" + ano + ".zip";
+    }
+
+    /** Página onde o usuário pode baixar os arquivos do TSE pelo navegador, se o download direto falhar. */
+    public static String paginaTse(int ano) {
+        return "https://dadosabertos.tse.jus.br/dataset/candidatos-" + ano;
     }
 
     public static String bens(int ano) {

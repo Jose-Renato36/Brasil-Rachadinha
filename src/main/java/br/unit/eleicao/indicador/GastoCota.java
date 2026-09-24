@@ -88,6 +88,25 @@ public class GastoCota extends Indicador {
     }
 
     @Override
+    public String getTituloSimples() {
+        return "Economia da verba de gabinete";
+    }
+
+    @Override
+    public String getPergunta() {
+        return "Quanto importa que a pessoa gaste menos da cota parlamentar do que os colegas do estado?";
+    }
+
+    @Override
+    public String resumir(double valor) {
+        if (Math.abs(valor) < 0.25) {
+            return "Gasta perto da média do estado";
+        }
+        return (valor > 0 ? "Gasta acima" : "Gasta abaixo") + " da média do estado ("
+                + Texto.decimal(Math.abs(valor), 1) + " desvio" + (Math.abs(valor) >= 1.95 ? "s" : "") + ")";
+    }
+
+    @Override
     public String formatar(double valor) {
         return "z = " + String.format(Texto.PT_BR, "%+.2f", valor);
     }

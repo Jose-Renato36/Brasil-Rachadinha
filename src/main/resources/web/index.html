@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voto com Dados</title>
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+  <header class="topo">
+    <div class="topo-interno">
+      <a class="marca" href="#/inicio">
+        <img src="icone.svg" alt="" width="32" height="32">
+        <span><strong>Voto com Dados</strong><small>Deputado Federal <span id="marca-uf"></span></small></span>
+      </a>
+      <button class="menu-botao" id="menu-botao" aria-expanded="false" aria-controls="menu">Menu</button>
+      <nav id="menu" class="menu" aria-label="Principal">
+        <a href="#/inicio">Início</a>
+        <a href="#/ranking">O que importa pra mim</a>
+        <a href="#/opinioes">Minhas opiniões</a>
+        <a href="#/comparar">Comparar</a>
+        <a href="#/panorama">Panorama</a>
+        <a href="#/como-funciona">Como funciona</a>
+        <a href="#/dados">Dados</a>
+      </nav>
+    </div>
+  </header>
+  <div id="aviso-demo" class="aviso-demo" hidden>
+    <strong>Demonstração com dados fictícios.</strong> As pessoas e partidos desta tela não existem.
+    Para ver candidatos reais, vá em <a href="#/dados">Dados</a> e colete o seu estado.
+  </div>
+  <main id="conteudo" tabindex="-1"></main>
+  <footer class="rodape">
+    <p>Este site <strong>não indica em quem votar</strong>. Ele organiza dados públicos do
+      <a href="https://dadosabertos.tse.jus.br" target="_blank" rel="noopener">TSE</a> e da
+      <a href="https://dadosabertos.camara.leg.br" target="_blank" rel="noopener">Câmara dos Deputados</a>
+      e mostra como cada número foi calculado. Confira sempre as fontes oficiais.</p>
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>

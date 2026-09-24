@@ -61,6 +61,7 @@ public class ProcessadorTSE {
                     + " e coloque nessa pasta.");
         }
         List<Registro> atuais = lerCandidatos(arqCand, true);
+        lerComplementar(atuais);
         Map<String, Double> bensAtuais = lerBens(anoEleicao);
 
         // eleição anterior: qualquer cargo na mesma UF, para achar a declaração de bens de quem já concorreu
@@ -150,13 +151,51 @@ public class ProcessadorTSE {
                 c.setGrauInstrucao(GrauInstrucao.deTexto(LeitorCsv.campo(l, iGrau)));
                 c.setCorRaca(Texto.limparTse(LeitorCsv.campo(l, iCor)));
                 c.setOcupacao(Texto.limparTse(LeitorCsv.campo(l, iOcup)));
-                String sit = Texto.limparTse(LeitorCsv.campo(l, iSit));
-                String det = Texto.limparTse(LeitorCsv.campo(l, iDetalhe));
-                c.setSituacao(det.isEmpty() || det.equalsIgnoreCase(sit) ? sit : sit + " (" + det + ")");
+                c.setSituacao(Texto.limparTse(LeitorCsv.campo(l, iSit)));
+                c.setDetalheSituacao(Texto.limparTse(LeitorCsv.campo(l, iDetalhe)));
                 porSq.put(sq, new Registro(c, Texto.somenteDigitos(Texto.limparTse(LeitorCsv.campo(l, iCpf)))));
             }
         }
         return new ArrayList<>(porSq.values());
+    }
+
+    /**
+     * Arquivo complementar (opcional): detalhe da situação (DEFERIDO, INDEFERIDO COM RECURSO...) e se a
+     * pessoa tenta a reeleição. Em 2026 o arquivo principal trazia a situação ainda como "#NE".
+     */
+    private void lerComplementar(List<Registro> registros) throws ArquivoInvalidoException {
+        Path arquivo = pasta.resolve(FontesDados.nomeLocal(FontesDados.candidatosComplementar(anoEleicao)));
+        if (!Files.exists(arquivo)) {
+            log.accept("  aviso: " + arquivo.getFileName() + " ausente - situação detalhada e reeleição sem dados");
+            return;
+        }
+        Map<String, Candidato> porSq = new HashMap<>();
+        for (Registro r : registros) {
+            porSq.put(r.candidato.getSq(), r.candidato);
+        }
+        int lidos = 0;
+        try (LeitorCsv csv = ArquivosBrutos.abrir(arquivo, LATIN1, "_" + uf + ".csv")) {
+            int iSq = csv.indice("SQ_CANDIDATO");
+            int iDetalhe = csv.indiceOpcional("DS_DETALHE_SITUACAO_CAND");
+            int iReeleicao = csv.indiceOpcional("ST_REELEICAO");
+            String[] l;
+            while ((l = csv.proximaLinha()) != null) {
+                Candidato c = porSq.get(LeitorCsv.campo(l, iSq));
+                if (c == null) {
+                    continue;
+                }
+                String detalhe = Texto.limparTse(LeitorCsv.campo(l, iDetalhe));
+                if (!detalhe.isEmpty()) {
+                    c.setDetalheSituacao(detalhe);
+                }
+                String reeleicao = Texto.limparTse(LeitorCsv.campo(l, iReeleicao));
+                if (!reeleicao.isEmpty()) {
+                    c.setReeleicao(reeleicao.equalsIgnoreCase("S"));
+                }
+                lidos++;
+            }
+        }
+        log.accept("  complementar: " + lidos + " candidaturas com situação detalhada");
     }
 
     /** Soma dos bens declarados por candidatura; mapa vazio se o arquivo não existir. */

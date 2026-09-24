@@ -44,7 +44,9 @@ public class Downloader {
         }
         Path temporario = pasta.resolve(destino.getFileName() + ".parcial");
         HttpRequest requisicao = HttpRequest.newBuilder(URI.create(url))
-                .header("User-Agent", "decisao-eleitoral/0.1 (projeto academico)")
+                // o CDN do TSE recusa (403) alguns clientes automáticos; um User-Agent de navegador evita isso
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) decisao-eleitoral/0.2")
+                .header("Accept", "application/json, */*;q=0.8")
                 .timeout(Duration.ofMinutes(20))
                 .GET().build();
         ColetaException ultimaFalha = null;

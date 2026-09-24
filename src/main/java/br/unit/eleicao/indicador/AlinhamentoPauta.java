@@ -19,7 +19,7 @@ public class AlinhamentoPauta extends Indicador {
 
     public AlinhamentoPauta() {
         super(CODIGO, "Alinhamento por pauta", "Câmara dos Deputados - votos nominais + suas posições",
-                "% de votos Sim/Não do deputado iguais ao voto que você marcou na aba Pautas.",
+                "% de votos Sim/Não do deputado iguais ao voto que você marcou em \"Minhas opiniões\".",
                 Sentido.MAIOR_MELHOR);
     }
 
@@ -27,7 +27,7 @@ public class AlinhamentoPauta extends Indicador {
     public ResultadoIndicador calcular(Candidato candidato, BaseDados base) {
         Collection<PosicaoUsuario> posicoes = base.getPosicoes();
         if (posicoes.isEmpty()) {
-            return ResultadoIndicador.semDados("Você ainda não marcou posições na aba Pautas");
+            return ResultadoIndicador.semDados("Você ainda não respondeu nenhuma pergunta em \"Minhas opiniões\"");
         }
         Deputado d = deputadoDe(candidato, base);
         if (d == null) {
@@ -52,6 +52,21 @@ public class AlinhamentoPauta extends Indicador {
         }
         return ResultadoIndicador.com(100.0 * coincidentes / comparaveis,
                 "Coincidiu com você em " + coincidentes + " de " + comparaveis + " votações comparáveis");
+    }
+
+    @Override
+    public String getTituloSimples() {
+        return "Vota como eu votaria";
+    }
+
+    @Override
+    public String getPergunta() {
+        return "Quanto importa que a pessoa tenha votado como você votaria? (responda em \"Minhas opiniões\")";
+    }
+
+    @Override
+    public String resumir(double valor) {
+        return "Votou igual a você em " + Texto.percentual(valor) + " das vezes";
     }
 
     @Override
