@@ -401,11 +401,13 @@ async function alternarCartao(el) {
 function semDadosDoMandato(t) {
   const local = t.local ? ' de ' + t.local : '';
   const textos = {
-    PREFEITO: `Não existe base nacional padronizada sobre a gestão das prefeituras. Consulte o Tribunal de Contas do Estado e o portal da transparência da prefeitura${local}.`,
+    PREFEITO: `Ainda sem indicadores deste mandato (a coleta consulta IBGE, Tesouro e INEP; o 1º ano completo precisa ter terminado). Para obras e serviços, consulte o Tribunal de Contas do Estado e o portal da transparência da prefeitura${local}.`,
     VICE_PREFEITO: 'Não existe base nacional padronizada sobre a gestão das prefeituras. Consulte o Tribunal de Contas do Estado.',
     VEREADOR: `As câmaras municipais não publicam dados num padrão nacional. Consulte o site da Câmara Municipal${local}.`,
-    GOVERNADOR: 'Não existe base nacional padronizada sobre a gestão dos governos estaduais. Consulte o Tribunal de Contas do Estado e o portal da transparência do estado.',
-    VICE_GOVERNADOR: 'Consulte o Tribunal de Contas do Estado e o portal da transparência do estado.',
+    GOVERNADOR: 'Ainda sem indicadores deste mandato (a coleta consulta IBGE, Tesouro e INEP; o 1º ano completo precisa ter terminado). Para obras e serviços, consulte o Tribunal de Contas do Estado.',
+    VICE_GOVERNADOR: 'Vice não governa sozinho: veja os indicadores do mandato do(a) governador(a) e o portal da transparência do estado.',
+    PRESIDENTE: 'Os indicadores da Presidência aparecem quando a coleta consulta IBGE, Banco Central e Câmara.',
+    VICE_PRESIDENTE: 'Vice não governa sozinho: veja os indicadores do mandato presidencial.',
     DEPUTADO_ESTADUAL: 'As Assembleias Legislativas não publicam dados num padrão nacional. Consulte o site da Assembleia do estado.',
     DEPUTADO_DISTRITAL: 'Consulte o site da Câmara Legislativa do Distrito Federal.',
   };
@@ -507,28 +509,106 @@ function blocoEmendas(e) {
   </div>`;
 }
 
-function blocoFiscal(lista) {
-  if (!lista || !lista.length) return '';
-  const entes = [...new Set(lista.map(x => x.ente))];
-  return entes.map(ente => {
-    const anos = lista.filter(x => x.ente === ente);
-    const limite = anos.find(x => x.limite != null)?.limite;
-    const teto = Math.max(limite || 0, ...anos.map(x => x.pessoalRcl)) * 1.1 || 1;
-    const barras = anos.map(x => `<div class="coluna ${x.duranteMandato ? 'durante' : 'antes'} ${x.acimaDoLimite ? 'acima' : ''}" title="${x.ano}: ${pct(x.pessoalRcl)}">
-        <span style="height:${100 * x.pessoalRcl / teto}%"></span><small>${x.ano}</small></div>`).join('');
-    const antes = anos.find(x => !x.duranteMandato), ultimo = anos[anos.length - 1];
-    const acima = anos.filter(x => x.acimaDoLimite && x.duranteMandato).map(x => x.ano);
-    return `<div class="mandato-dados">
-      <div class="mandato-titulo"><strong>Antes e depois: gasto com pessoal</strong> · ${esc(ente)}</div>
-      <div class="colunas-ano fiscal" role="img" aria-label="Gasto com pessoal em % da receita, por ano">
-        ${limite ? `<i class="limite" style="bottom:${100 * limite / teto}%" title="Limite da LRF: ${pct(limite)}"></i>` : ''}${barras}</div>
-      <p class="legenda-linha"><span class="cor antes"></span> antes do mandato <span class="cor durante"></span> durante ${limite ? '<span class="cor limite"></span> limite da Lei de Responsabilidade Fiscal' : ''}</p>
-      <p>${antes ? `Ao assumir (${antes.ano}): <strong>${pct(antes.pessoalRcl)}</strong> da receita com pessoal. ` : ''}
-        Último ano com dados (${ultimo.ano}): <strong>${pct(ultimo.pessoalRcl)}</strong>${limite ? ` (limite: ${pct(limite)})` : ''}.
-        ${acima.length ? `<strong class="texto-perigo">Acima do limite em ${acima.join(', ')}.</strong>` : ''}</p>
-      <small class="fraco">Fonte: Relatório de Gestão Fiscal enviado ao Tesouro (SICONFI). Mostra só uma dimensão da gestão; obras e serviços estão no Tribunal de Contas do Estado.</small>
-    </div>`;
+function numeroBr(v, casas = 1) {
+  return v == null ? '–' : v.toLocaleString('pt-BR', { maximumFractionDigits: casas, minimumFractionDigits: 0 });
+}
+
+/** Valor legível de um ponto, na unidade da série. */
+function valorSerie(s, v) {
+  if (v == null) return '–';
+  if (s.unidade === 'R$') return moeda(v);
+  if (s.unidade === '%') return numeroBr(v) + '%';
+  if (s.unidade === 'nota') return numeroBr(v);
+  return numeroBr(v, 0) + (s.unidade ? ' ' + s.unidade : '');
+}
+
+/** Resultado do período (variação, diferença, média ou soma) formatado. */
+function resultadoSerie(s, v) {
+  if (v == null) return '–';
+  const sinal = v > 0 ? '+' : '';
+  switch (s.forma) {
+    case 'VARIACAO_PERCENTUAL': return sinal + numeroBr(v) + '%';
+    case 'VARIACAO_PONTOS': return sinal + numeroBr(v) + (s.unidade === '%' ? ' p.p.' : '');
+    case 'SOMA': return numeroBr(v, 0);
+    default: return numeroBr(v) + (s.unidade === '%' ? '%' : '');
+  }
+}
+
+function legendaResultado(s) {
+  switch (s.forma) {
+    case 'VARIACAO_PERCENTUAL': return 'variação desde o ano da eleição';
+    case 'VARIACAO_PONTOS': return 'diferença desde antes do mandato';
+    case 'SOMA': return 'total no mandato';
+    default: return 'média nos anos do mandato';
+  }
+}
+
+/** Mini gráfico de colunas: antes (cinza), durante (azul), referência (ponto laranja), limite (tracejado). */
+function graficoSerie(s) {
+  const indice = s.forma === 'VARIACAO_PERCENTUAL';
+  const base = s.pontos[0];
+  const conv = (v, ref) => {
+    if (v == null) return null;
+    if (!indice) return v;
+    const b = ref ? base.referencia : base.valor;
+    return b ? 100 * v / b : null;
+  };
+  const vals = s.pontos.flatMap(p => [conv(p.valor, false), conv(p.referencia, true)]).filter(v => v != null);
+  if (s.limite != null) vals.push(s.limite);
+  let max = Math.max(0, ...vals), min = Math.min(0, ...vals);
+  if (indice) { min = Math.min(...vals) * 0.9; max = Math.max(...vals) * 1.05; }
+  else { max = max * 1.1 || 1; min = min < 0 ? min * 1.1 : 0; }
+  const faixa = max - min || 1;
+  const pos = v => 100 * (v - min) / faixa;
+  const zero = pos(indice ? min : 0);
+  const colunas = s.pontos.map(p => {
+    const v = conv(p.valor, false), r = conv(p.referencia, true);
+    const topo = Math.max(pos(v), zero), fundo = Math.min(pos(v), zero);
+    const dica = `${p.ano}${p.durante ? ' (mandato)' : ' (antes)'}: ${valorSerie(s, p.valor)}`
+      + (p.referencia != null ? ` · ${s.referenciaNome}: ${valorSerie(s, p.referencia)}` : '');
+    return `<div class="coluna ${p.durante ? 'durante' : 'antes'}" title="${esc(dica)}" tabindex="0" aria-label="${esc(dica)}">
+      <span style="bottom:${fundo}%;height:${Math.max(1, topo - fundo)}%"></span>
+      ${r != null ? `<i class="ref" style="bottom:${pos(r)}%"></i>` : ''}
+      <small>${String(p.ano).slice(2)}</small></div>`;
   }).join('');
+  const temRef = s.pontos.some(p => p.referencia != null);
+  return `<div class="colunas-ano mini ${indice ? 'indice' : ''}" role="img" aria-label="${esc(s.titulo)} por ano">
+      ${s.limite != null ? `<b class="limite" style="bottom:${pos(s.limite)}%" title="Limite legal: ${esc(valorSerie(s, s.limite))}"></b>` : ''}
+      ${min < 0 ? `<b class="zero" style="bottom:${zero}%"></b>` : ''}${colunas}</div>
+    <p class="legenda-linha">${s.pontos.some(p => !p.durante) ? '<span class="cor antes"></span>antes ' : ''}<span class="cor durante"></span>mandato
+      ${temRef ? `<span class="cor ref"></span>${esc(s.referenciaNome)}` : ''}
+      ${s.limite != null ? '<span class="cor limite"></span>limite da lei' : ''}
+      ${indice ? '<br><small>Barras em índice: ano da eleição = 100, para comparar com a referência.</small>' : ''}</p>`;
+}
+
+function cartaoSerie(s, tema) {
+  const comp = s.melhorQueReferencia;
+  const selo = comp == null ? '' : `<span class="comparacao ${comp ? 'melhor' : 'pior'}">${comp ? '✓ Melhor' : '! Pior'} que ${esc(s.referenciaNome)}
+      (${esc(resultadoSerie(s, s.resultadoReferencia))})</span>`;
+  const semRef = comp == null && s.resultadoReferencia != null
+    ? `<span class="comparacao">${esc(s.referenciaNome)}: ${esc(resultadoSerie(s, s.resultadoReferencia))}</span>` : '';
+  return `<div class="cartao-serie">
+    <small class="tema-serie">${esc(tema)}</small>
+    <h5>${esc(s.titulo)}</h5>
+    <p class="resultado-serie"><strong>${esc(resultadoSerie(s, s.resultado))}</strong> <small>${legendaResultado(s)}</small></p>
+    ${selo}${semRef}
+    ${graficoSerie(s)}
+    <details><summary>Como ler</summary><p class="fraco">${esc(s.explicacao)} <small>Fonte: ${esc(s.fonte)}.</small></p></details>
+  </div>`;
+}
+
+function blocoMandatosExecutivo(c) {
+  const lista = c.mandatosExecutivo || [];
+  if (!lista.length) return '';
+  return `<section class="governou" aria-label="Como foi quando governou">
+    <h3>Como estava o lugar quando a pessoa governou</h3>
+    <p class="fraco">Cada indicador compara o ano da eleição (o que a pessoa encontrou) com o último ano do mandato que já tem dados,
+      ao lado de uma referência no mesmo período. Mostra o que aconteceu durante o governo; <strong>não prova que foi por causa dele</strong>.</p>
+    ${lista.map(m => `<div class="mandato-governo">
+      <h4>${esc(m.ente)} <small>· ${esc(m.cargo)} de ${m.inicio} a ${m.fim}</small></h4>
+      <div class="grade-series">${m.temas.map(t => t.series.map(x => cartaoSerie(x, t.tema)).join('')).join('')}</div>
+    </div>`).join('')}
+  </section>`;
 }
 
 function blocoVinculos(c) {
@@ -580,12 +660,12 @@ function detalheCandidato(c, resumido) {
   }).join('')}</ol>` : `<p class="fraco">Nenhuma candidatura encontrada nas eleições de ${c.trajetoriaDe} a ${c.trajetoriaAte} neste estado.
       Pode ser a primeira eleição, ou a pessoa concorreu em outro estado.</p>`;
 
-  const comFiscal = new Set((c.gestaoFiscal || []).map(x => x.ente));
+  const governados = (c.mandatosExecutivo || []).map(m => m.anoEleicao + '|' + m.cargo);
   const mandatosSemDados = c.trajetoria.filter(t => t.eleito && t.tipo !== 'DEPUTADO_FEDERAL' && t.tipo !== 'SENADOR' && t.tipo !== 'SUPLENTE_SENADOR'
-    && !((t.tipo === 'PREFEITO' || t.tipo === 'GOVERNADOR') && [...comFiscal].some(e => e.endsWith(t.local || c.uf))));
+    && !governados.includes(t.ano + '|' + t.cargoTexto));
   const atuacao = c.atuacao.map(blocoAtuacao).join('')
     + blocoEmendas(c.emendas)
-    + blocoFiscal(c.gestaoFiscal)
+    + (c.mandatosExecutivo && c.mandatosExecutivo.length ? '<p class="fraco">Os indicadores de quando governou estão logo acima, em “Como estava o lugar quando a pessoa governou”.</p>' : '')
     + mandatosSemDados.map(t => `<div class="mandato-dados sem">
         <div class="mandato-titulo"><strong>${esc(t.cargoTexto)}</strong>${t.local ? ' em ' + esc(t.local) : ''} · ${t.ano + 1}–${t.fimMandato}</div>
         <p>${esc(semDadosDoMandato(t))}</p></div>`).join('');
@@ -595,6 +675,7 @@ function detalheCandidato(c, resumido) {
   const naLista = app.comparar.includes(c.sq);
   return `
     ${blocoPreparo(c)}
+    ${blocoMandatosExecutivo(c)}
     <div class="detalhe-grade">
       <section><h3>Trajetória política</h3>${traj}</section>
       <section><h3>O que fez nos mandatos</h3>

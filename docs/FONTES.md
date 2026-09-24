@@ -203,19 +203,45 @@ O quadro "Preparo para o cargo" (pacote `preparo/`) não cria nota: mostra fatos
   `SITUACAO_VINCULO`, `DATA_INGRESSO_SERVICOPUBLICO`. Mesma regra de ligação (nome + CPF parcial).
 - Cobre só servidores civis do **Executivo federal**; servidores estaduais e municipais não aparecem.
 
-## Antes e depois de prefeitos e governadores (SICONFI)
+## Antes e depois de quem já governou (prefeito, governador, presidente)
 
-- API `https://apidatalake.tesouro.gov.br/ords/siconfi/tt/rgf?an_exercicio=ANO&in_periodicidade=Q&nr_periodo=3&co_tipo_demonstrativo=RGF&no_anexo=RGF-Anexo%2001&co_esfera=M|E&co_poder=E&id_ente=IBGE`.
-  Municípios pequenos podem publicar por semestre: sem resposta em `Q/3`, tentamos `S/2`.
-- Do Anexo 1 (despesa com pessoal) usamos `cod_conta = DespesaComPessoalTotal` e `LimiteMaximoDespesaComPessoalTotal`
-  na coluna `% sobre a RCL Ajustada` (mesmos códigos usados por outro projeto aberto que valida a API).
-- O município do TSE (`SG_UE` da candidatura antiga) vira código IBGE pela tabela
-  [betafcc/Municipios-Brasileiros-TSE](https://github.com/betafcc/Municipios-Brasileiros-TSE); governos estaduais
-  usam o código IBGE da UF.
-- O ano da eleição é o "antes" (quem governava era o antecessor); os seguintes, o mandato. Só exercícios
-  encerrados. É **uma** dimensão da gestão (responsabilidade fiscal), não uma avaliação de desempenho; IDEB e
-  indicadores de saúde ficaram de fora porque o INEP publica planilhas que exigiriam bibliotecas externas.
-  Respostas guardadas em `dados/brutos/siconfi/`.
+Para cada mandato no Executivo encontrado na trajetória (pacote `coleta/mandato/`), o sistema consulta as fontes
+abaixo do ano anterior à eleição até o fim do mandato (ou o último ano encerrado). O ano da eleição é o "antes":
+quem governava era o antecessor. Cada indicador aparece **ao lado de uma referência no mesmo período**: o estado
+(para prefeituras) ou o Brasil (para estados). Assim se vê se o lugar foi melhor ou pior que a média, sem atribuir
+causa ao governante. As respostas ficam em `dados/brutos/mandatos/FONTE/`.
+
+| Indicador | Prefeito | Governador | Presidente | Fonte (conferida) |
+|---|---|---|---|---|
+| PIB e PIB por pessoa | ✓ (ref. estado) | ✓ (ref. Brasil) | | IBGE, API de agregados v3, tabela **5938**, variáveis **37** (R$ mil) e **543** (R$) |
+| Empregos formais | ✓ (ref. estado) | ✓ (ref. Brasil) | | IBGE/CEMPRE, tabelas **1685** (até 2021) e **9509** (desde 2022), variável **708** |
+| Desemprego | | ✓ (ref. Brasil) | ✓ | IBGE/PNAD Contínua, tabela **4099**, variável **4099**, média dos 4 trimestres |
+| IDEB | rede municipal, anos iniciais (ref. rede municipal do estado) | rede estadual, anos finais e médio (ref. redes estaduais do Brasil) | escolas públicas, 3 etapas | INEP, pacotes `divulgacao_*_{ano}.zip` (xlsx, cabeçalho na 10ª linha, colunas `VL_OBSERVADO_AAAA`) |
+| Gasto com pessoal e limite da LRF | ✓ | ✓ | | SICONFI, RGF Anexo 1 (`DespesaComPessoalTotal`, `LimiteMaximoDespesaComPessoalTotal`) |
+| Investimento (% da despesa) | ✓ | ✓ | | SICONFI, RREO Anexo 1, 6º bimestre (`Investimentos` / `TotalDespesas`, liquidadas) |
+| Sobrou ou faltou no ano | ✓ | ✓ | | SICONFI, RREO Anexo 1 (`TotalReceitas` realizada − `TotalDespesas` liquidada) |
+| Crescimento real do PIB | | | ✓ | Banco Central, SGS **7326** |
+| Inflação (IPCA no ano) | | | ✓ | Banco Central, SGS **13522** (12 meses, dezembro) |
+| Dívida pública bruta (% do PIB) | | | ✓ | Banco Central, SGS **13762** (dezembro) |
+| Medidas provisórias e projetos do governo (enviados e aprovados) | | | ✓ | Câmara, `proposicoesAutores` (`codTipoAutor` 30000, "Poder Executivo") + `proposicoes` |
+
+Detalhes e cuidados:
+
+- **Resposta do IBGE** (v3): `[{"id":"37","variavel":...,"resultados":[{"series":[{"localidade":...,"serie":{"2020":"123"}}]}]}]`;
+  `-`, `...` e `X` (sigilo) são tratados como "sem dado". PIB e empregos são comparados pela **variação** no mandato; os
+  gráficos mostram um índice (ano da eleição = 100), porque cidade e estado têm escalas muito diferentes.
+- **Valores correntes**: o PIB do IBGE não desconta a inflação; como a referência passa pela mesma inflação, a
+  comparação continua justa. O PIB dos municípios sai com cerca de 2 anos de atraso.
+- **CEMPRE**: o IBGE mudou a metodologia em 2022 (tabela 9509). A referência muda junto.
+- **SICONFI**: 1 pedido por segundo; municípios pequenos podem publicar o RGF por semestre (tentamos `S/2` se `Q/3` vier vazio).
+  Os anexos de **saúde (RREO 12) e educação (RREO 8)**, com os mínimos de 15% e 25%, **não são publicados pela API**
+  (dois projetos abertos que testaram ao vivo confirmam); ficaram de fora.
+- **IDEB** é bienal (anos ímpares); a edição anterior ao mandato conta como "antes". As edições de 2021 e 2023 foram
+  afetadas pela pandemia. A planilha é lida por um leitor de `.xlsx` feito só com o JDK (`util/LeitorXlsx`, StAX).
+- **Inflação e juros** dependem do Banco Central (autônomo desde 2021) e do cenário mundial; aparecem só no mandato
+  presidencial, como contexto.
+- **Prefeitos e governadores não têm base nacional de projetos de lei**: as câmaras municipais e assembleias publicam cada
+  uma de um jeito.
 
 ## Fontes avaliadas e não usadas
 
@@ -225,4 +251,5 @@ O quadro "Preparo para o cargo" (pacote `preparo/`) não cria nota: mostra fatos
 | Assembleias legislativas e câmaras municipais | sem padrão nacional |
 | Filiação sindical | dado sensível (LGPD) e sem base pública individual |
 | Processos judiciais | sem base aberta estruturada confiável; risco de erro e dano à reputação |
-| IDEB / DATASUS por município | planilhas e sistemas que exigiriam bibliotecas externas; ficam como próximo passo |
+| DATASUS (mortalidade infantil, vacinação) | sistemas TabNet sem API estável; próximo passo |
+| SIOPS / SIOPE (mínimos de saúde e educação) | fora da API do SICONFI; exigem outros sistemas; próximo passo |

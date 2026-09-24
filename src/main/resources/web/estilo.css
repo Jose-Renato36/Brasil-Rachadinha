@@ -36,7 +36,7 @@
     --fundo: #141517; --superficie: #1d1f22; --superficie-2: #2a2d31; --borda: #3a3d42;
     --texto: #f1f0ec; --texto-2: #c3c2b7; --texto-3: #9a9a92;
     --primaria: #5b9be6; --primaria-escura: #a9ccf5; --primaria-clara: #1d3350;
-    --serie-1: #3987e5; --ok: #4cc38a; --ok-fundo: #173327; --alerta: #f0c060; --alerta-fundo: #3a2f12;
+    --serie-1: #3987e5; --serie-2: #d95926; --serie-3: #199e70; --ok: #4cc38a; --ok-fundo: #173327; --alerta: #f0c060; --alerta-fundo: #3a2f12;
     --perigo: #f07a72; --perigo-fundo: #3d1b19; --grade: #33363b; --eixo: #6b6e73;
     --botao: #2d6cc0; --botao-hover: #3a7bd0;
     --exp-atual: #a9ccf5; --exp-atual-fundo: #1d3350;
@@ -50,7 +50,7 @@
   --fundo: #141517; --superficie: #1d1f22; --superficie-2: #2a2d31; --borda: #3a3d42;
   --texto: #f1f0ec; --texto-2: #c3c2b7; --texto-3: #9a9a92;
   --primaria: #5b9be6; --primaria-escura: #a9ccf5; --primaria-clara: #1d3350;
-  --serie-1: #3987e5; --ok: #4cc38a; --ok-fundo: #173327; --alerta: #f0c060; --alerta-fundo: #3a2f12;
+  --serie-1: #3987e5; --serie-2: #d95926; --serie-3: #199e70; --ok: #4cc38a; --ok-fundo: #173327; --alerta: #f0c060; --alerta-fundo: #3a2f12;
   --perigo: #f07a72; --perigo-fundo: #3d1b19; --grade: #33363b; --eixo: #6b6e73;
     --botao: #2d6cc0; --botao-hover: #3a7bd0;
     --exp-atual: #a9ccf5; --exp-atual-fundo: #1d3350;
@@ -401,3 +401,38 @@ details summary { cursor: pointer; font-weight: 600; color: var(--primaria); }
 .duas-colunas h5 { margin: 8px 0 4px; }
 .lista-simples { list-style: none; padding: 0; margin: 6px 0 10px; display: grid; gap: 8px; }
 .detalhe-grade .largura-toda { grid-column: 1 / -1; }
+
+/* ---------- como estava o lugar quando a pessoa governou ---------- */
+.governou { border: 1px solid var(--borda); border-radius: var(--raio); padding: 16px 18px; margin-bottom: 18px; }
+.governou > h3 { margin: 0 0 4px; }
+.governou > .fraco { margin: 0 0 8px; font-size: .9rem; }
+.mandato-governo + .mandato-governo { border-top: 1px solid var(--borda); margin-top: 14px; }
+.mandato-governo h4 { margin: 12px 0 2px; }
+.mandato-governo h4 small { font-weight: 400; color: var(--texto-2); }
+.tema-mandato { margin: 12px 0 6px; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-2); }
+.grade-series { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.cartao-serie { background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.cartao-serie h5 { margin: 0 0 2px; font-size: .92rem; }
+.resultado-serie { margin: 0; }
+.resultado-serie strong { font-size: 1.35rem; }
+.resultado-serie small { color: var(--texto-2); }
+.comparacao { display: inline-block; font-size: .8rem; margin-top: 4px; padding: 1px 8px; border-radius: 999px;
+  background: var(--superficie-2); color: var(--texto-2); }
+.comparacao.melhor { background: var(--ok-fundo); color: var(--ok); }
+.comparacao.pior { background: var(--alerta-fundo); color: var(--alerta); }
+.colunas-ano.mini { height: 84px; margin: 10px 0 20px; gap: 4px; }
+.colunas-ano.mini .coluna { position: relative; }
+.colunas-ano.mini .coluna span { position: absolute; left: 50%; transform: translateX(-50%); width: 70%; max-width: 26px;
+  background: var(--serie-1); border-radius: 4px 4px 0 0; }
+.colunas-ano.mini .coluna.antes span { background: var(--eixo); }
+.colunas-ano.mini .coluna small { bottom: -18px; }
+.colunas-ano.mini .coluna:focus-visible { outline: 2px solid var(--primaria); outline-offset: 2px; }
+.colunas-ano .ref { position: absolute; left: 50%; width: 9px; height: 9px; margin: 0 0 -4.5px -4.5px; border-radius: 50%;
+  background: var(--serie-2); box-shadow: 0 0 0 2px var(--superficie); z-index: 2; }
+.colunas-ano .zero { position: absolute; left: 0; right: 0; border-top: 1px solid var(--eixo); }
+.colunas-ano.mini .limite { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--perigo); z-index: 1; }
+.legenda-linha .cor.ref { background: var(--serie-2); border-radius: 50%; margin-left: 8px; }
+.tema-serie { display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-2); }
+.cartao-serie details summary { font-size: .85rem; cursor: pointer; color: var(--primaria); }
+.cartao-serie details p { font-size: .85rem; margin: 6px 0 0; }
+.legenda-linha .cor:first-child { margin-left: 0; }

@@ -12,7 +12,7 @@ public class Metadados {
     public static final String FONTE_EMPRESAS = "empresas";
     public static final String FONTE_SANCOES = "sancoes";
     public static final String FONTE_SIAPE = "siape";
-    public static final String FONTE_SICONFI = "siconfi";
+    public static final String FONTE_MANDATOS = "mandatos";
 
     private String uf;
     private int anoEleicao;

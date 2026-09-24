@@ -173,41 +173,6 @@ class FontesComplementaresTest {
     }
 
     @Test
-    void siconfiLePercentualDePessoalELimite() {
-        String json = "{\"items\":[{\"exercicio\":2023,\"periodo\":3,\"cod_ibge\":2800308,\"anexo\":\"RGF-Anexo 01\","
-                + "\"coluna\":\"Valor\",\"cod_conta\":\"DespesaComPessoalTotal\",\"conta\":\"DESPESA TOTAL COM PESSOAL\",\"valor\":987654.3},"
-                + "{\"coluna\":\"% sobre a RCL Ajustada\",\"cod_conta\":\"DespesaComPessoalTotal\",\"conta\":\"x\",\"valor\":51.27},"
-                + "{\"coluna\":\"% sobre a RCL Ajustada\",\"cod_conta\":\"LimiteMaximoDespesaComPessoalTotal\",\"conta\":\"y\",\"valor\":54}],"
-                + "\"hasMore\":false}";
-        Double[] v = GestaoFiscalSiconfi.interpretar(json);
-        assertEquals(51.27, v[0], 1e-9);
-        assertEquals(54.0, v[1], 1e-9);
-        assertNull(GestaoFiscalSiconfi.interpretar("{\"items\":[]}")[0]);
-    }
-
-    @Test
-    void gestaoFiscalUsaCacheSemDownload(@TempDir Path pasta) throws Exception {
-        Candidato a = candidato("1", "ANA", "ANA");
-        CandidaturaAnterior t = new CandidaturaAnterior(2020, "PREFEITO", "CIDADE/ZZ", "PXA", "Eleito(a)");
-        t.setCodigoUe("00123");
-        a.adicionarCandidaturaAnterior(t);
-        Files.writeString(pasta.resolve("municipios_brasileiros_tse.csv"),
-                "codigo_tse,uf,nome_municipio,capital,codigo_ibge\n123,ZZ,CIDADE,0,9900001\n");
-        Path siconfi = pasta.resolve("siconfi");
-        Files.createDirectories(siconfi);
-        for (int ano = 2020; ano <= 2024; ano++) {
-            Files.writeString(siconfi.resolve("rgf_9900001_" + ano + "_Q.json"), "{\"items\":[{\"coluna\":"
-                    + "\"% sobre a RCL Ajustada\",\"cod_conta\":\"DespesaComPessoalTotal\",\"valor\":" + (45 + ano - 2020)
-                    + "},{\"coluna\":\"% sobre a RCL Ajustada\",\"cod_conta\":\"LimiteMaximoDespesaComPessoalTotal\",\"valor\":54}]}");
-        }
-        assertTrue(new GestaoFiscalSiconfi(pasta, null, s -> { }).processar(List.of(a), 2026));
-        assertEquals(5, a.getGestaoFiscal().size());
-        assertFalse(a.getGestaoFiscal().get(0).isDuranteMandato(), "o ano da eleição é o 'antes'");
-        assertTrue(a.getGestaoFiscal().get(1).isDuranteMandato());
-        assertEquals(49.0, a.getGestaoFiscal().get(4).getPessoalRcl(), 1e-9);
-    }
-
-    @Test
     void cpfMascaradoExigeSeisDigitosIguais() {
         assertTrue(Texto.cpfCompativel("11122233344", "***.222.333-**"));
         assertTrue(Texto.cpfCompativel("11122233344", "***222333**"));
@@ -227,7 +192,10 @@ class FontesComplementaresTest {
             assertEquals(c.getEmpresas().size(), l.getEmpresas().size());
             assertEquals(c.getSancoes().size(), l.getSancoes().size());
             assertEquals(c.getVinculosServidor().size(), l.getVinculosServidor().size());
-            assertEquals(c.getGestaoFiscal().size(), l.getGestaoFiscal().size());
+            assertEquals(c.getSeriesMandato().size(), l.getSeriesMandato().size());
+            for (int k = 0; k < c.getSeriesMandato().size(); k++) {
+                assertEquals(c.getSeriesMandato().get(k).getResumo(), l.getSeriesMandato().get(k).getResumo());
+            }
             assertEquals(c.getSeriePatrimonio(2026), l.getSeriePatrimonio(2026));
             assertEquals(c.getFinanciamento() == null, l.getFinanciamento() == null);
             if (c.getEmendas() != null) {

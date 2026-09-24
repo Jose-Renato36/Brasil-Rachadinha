@@ -5,7 +5,9 @@ import br.unit.eleicao.modelo.Candidato;
 import br.unit.eleicao.modelo.CandidaturaAnterior;
 import br.unit.eleicao.modelo.Cargo;
 import br.unit.eleicao.modelo.Financiamento;
-import br.unit.eleicao.modelo.IndicadorFiscal;
+import br.unit.eleicao.modelo.FormaResumo;
+import br.unit.eleicao.modelo.SerieMandato;
+import br.unit.eleicao.modelo.TemaMandato;
 import br.unit.eleicao.modelo.Metadados;
 import br.unit.eleicao.modelo.ResumoEmendas;
 import br.unit.eleicao.modelo.Sancao;
@@ -38,7 +40,7 @@ class ComplementosDemo {
         Metadados meta = base.getMetadados();
         for (String f : new String[]{Metadados.FONTE_CASSACAO, Metadados.FONTE_BENS_ANTERIORES, Metadados.FONTE_RECEITAS,
                 Metadados.FONTE_EMENDAS, Metadados.FONTE_EMPRESAS, Metadados.FONTE_SANCOES, Metadados.FONTE_SIAPE,
-                Metadados.FONTE_SICONFI}) {
+                Metadados.FONTE_MANDATOS}) {
             meta.marcarVerificada(f);
         }
         List<Candidato> todos = new ArrayList<>(base.getCandidatos());
@@ -58,7 +60,7 @@ class ComplementosDemo {
                         : "TÉCNICO DO SEGURO SOCIAL", n % 2 == 0 ? "UNIVERSIDADE FEDERAL FICTÍCIA" : "INSTITUTO FICTÍCIO",
                         n % 5 == 0 ? "CEDIDO/REQUISITADO" : "ATIVO PERMANENTE", "0" + (1 + n % 9) + "/03/" + (2005 + n % 12)));
             }
-            gestaoFiscal(c, meta.getAnoEleicao());
+            mandatosExecutivo(c, meta.getAnoEleicao());
             n++;
         }
         // um caso de sanção em empresa e um de cassação, para mostrar os alertas
@@ -143,21 +145,123 @@ class ComplementosDemo {
         }
     }
 
-    private void gestaoFiscal(Candidato c, int anoEleicao) {
+    /** Indicadores de antes e depois para ex-prefeitos, ex-governadores e ex-presidentes (tudo fictício). */
+    private void mandatosExecutivo(Candidato c, int anoEleicao) {
         for (CandidaturaAnterior t : c.getTrajetoria()) {
             Cargo cargo = t.getTipoCargo();
-            if (!t.isEleito() || (cargo != Cargo.PREFEITO && cargo != Cargo.GOVERNADOR)) {
+            if (!t.isEleito() || t.getAno() >= anoEleicao - 1
+                    || (cargo != Cargo.PREFEITO && cargo != Cargo.GOVERNADOR && cargo != Cargo.PRESIDENTE)) {
+                continue;
+            }
+            Mandato m = new Mandato(c, t, anoEleicao);
+            if (cargo == Cargo.PRESIDENTE) {
+                m.taxa(TemaMandato.ECONOMIA, "Crescimento do PIB", FormaResumo.MEDIA, true, 1.5, 2.5, null, 0);
+                m.taxa(TemaMandato.ECONOMIA, "Inflação (IPCA)", FormaResumo.MEDIA, false, 5.5, 2.5, null, 0);
+                m.taxa(TemaMandato.CONTAS, "Dívida pública bruta", FormaResumo.VARIACAO_PONTOS, false, 74, 3, null, 0);
+                m.taxa(TemaMandato.EMPREGO, "Desemprego", FormaResumo.VARIACAO_PONTOS, false, 11, 1.2, null, 0);
+                for (String etapa : new String[]{"anos iniciais", "anos finais", "ensino médio"}) {
+                    m.ideb("escolas públicas, " + etapa, 5.0, null);
+                }
+                m.contagem("Medidas provisórias editadas", 55);
+                m.contagem("Medidas provisórias que viraram lei", 28);
+                m.contagem("Projetos enviados ao Congresso", 40);
+                m.contagem("Projetos do governo aprovados", 15);
                 continue;
             }
             boolean municipal = cargo == Cargo.PREFEITO;
-            String ente = (municipal ? "Prefeitura de " : "Governo de ") + (t.getLocal().isEmpty() ? c.getUf() : t.getLocal());
-            double limite = municipal ? 54.0 : 49.0;
-            double valor = limite - 6 + 8 * rnd.nextDouble();
-            double tendencia = (rnd.nextDouble() - 0.5) * 3;
-            for (int ano = t.getAno(); ano <= Math.min(t.getFimMandato(), anoEleicao - 1); ano++) {
-                c.adicionarIndicadorFiscal(new IndicadorFiscal(ente, ano, Math.round(valor * 100) / 100.0, limite,
-                        ano > t.getAno()));
-                valor += tendencia + rnd.nextGaussian();
+            String ref = municipal ? "estado" : "Brasil";
+            m.crescimento(TemaMandato.ECONOMIA, "Crescimento do PIB", municipal ? 2e9 : 5e10, ref, 2);
+            m.crescimento(TemaMandato.ECONOMIA, "PIB por pessoa", municipal ? 24_000 : 30_000, ref, 2);
+            m.crescimento(TemaMandato.EMPREGO, "Empregos formais", municipal ? 40_000 : 600_000, ref, 1);
+            if (municipal) {
+                m.ideb("rede municipal, anos iniciais", 5.2, "rede municipal do estado");
+            } else {
+                m.taxa(TemaMandato.EMPREGO, "Desemprego", FormaResumo.VARIACAO_PONTOS, false, 12, 1.0, "Brasil", 10.5);
+                m.ideb("rede estadual, anos finais", 4.4, "redes estaduais do Brasil");
+                m.ideb("rede estadual, ensino médio", 3.9, "redes estaduais do Brasil");
+            }
+            SerieMandato pessoal = m.taxa(TemaMandato.CONTAS, "Gasto com pessoal", FormaResumo.VARIACAO_PONTOS, false,
+                    municipal ? 50 : 46, 1.5, null, 0);
+            pessoal.setLimite(municipal ? 54.0 : 49.0);
+            m.taxa(TemaMandato.CONTAS, "Investimento", FormaResumo.MEDIA, true, 8, 2.5, null, 0);
+            m.taxa(TemaMandato.CONTAS, "Sobrou ou faltou dinheiro no ano", FormaResumo.MEDIA, null, 1, 3, null, 0);
+        }
+    }
+
+    /** Ajuda a montar as séries fictícias de um mandato. */
+    private final class Mandato {
+        private final Candidato c;
+        private final CandidaturaAnterior t;
+        private final int primeiro;
+        private final int ultimo;
+        private final String ente;
+
+        Mandato(Candidato c, CandidaturaAnterior t, int anoEleicao) {
+            this.c = c;
+            this.t = t;
+            this.primeiro = t.getAno() - 1;
+            this.ultimo = Math.min(t.getFimMandato(), anoEleicao - 1);
+            Cargo cargo = t.getTipoCargo();
+            this.ente = cargo == Cargo.PRESIDENTE ? "Governo federal" : cargo == Cargo.GOVERNADOR
+                    ? "Governo de " + (t.getLocal().isEmpty() ? c.getUf() : t.getLocal()) : "Prefeitura de " + t.getLocal();
+        }
+
+        private SerieMandato nova(TemaMandato tema, String titulo, String unidade, FormaResumo forma, Boolean maior) {
+            SerieMandato s = new SerieMandato(SerieMandato.descreverMandato(t.getTipoCargo(), ente, t.getAno(),
+                    t.getFimMandato()), t.getTipoCargo(), ente, t.getAno(), t.getFimMandato(), tema, titulo, unidade,
+                    forma, maior);
+            s.setFonte("Demonstração (valores fictícios)");
+            s.setExplicacao("Série inventada para mostrar como a tela funciona.");
+            c.adicionarSerieMandato(s);
+            return s;
+        }
+
+        /** Valor que cresce em % ao ano, com a referência crescendo em ritmo parecido; atraso = anos sem dado. */
+        void crescimento(TemaMandato tema, String titulo, double inicial, String ref, int atraso) {
+            SerieMandato s = nova(tema, titulo, titulo.startsWith("Emp") ? "empregos" : "R$",
+                    FormaResumo.VARIACAO_PERCENTUAL, true);
+            s.setReferenciaNome(ref);
+            double v = inicial;
+            double r = inicial * (3 + rnd.nextDouble());
+            for (int ano = primeiro; ano <= ultimo - atraso; ano++) {
+                s.adicionar(ano, Math.round(v), (double) Math.round(r));
+                v *= 1 + (0.02 + 0.10 * rnd.nextDouble());
+                r *= 1 + (0.05 + 0.04 * rnd.nextDouble());
+            }
+        }
+
+        SerieMandato taxa(TemaMandato tema, String titulo, FormaResumo forma, Boolean maior, double base, double ruido,
+                          String ref, double baseRef) {
+            SerieMandato s = nova(tema, titulo, "%", forma, maior);
+            if (ref != null) {
+                s.setReferenciaNome(ref);
+            }
+            double v = base;
+            for (int ano = primeiro; ano <= ultimo; ano++) {
+                s.adicionar(ano, Math.round(v * 10) / 10.0, ref == null ? null : Math.round((baseRef + rnd.nextGaussian())
+                        * 10) / 10.0);
+                v += (rnd.nextDouble() - 0.5) * ruido;
+            }
+            return s;
+        }
+
+        void ideb(String rotulo, double base, String ref) {
+            SerieMandato s = nova(TemaMandato.EDUCACAO, "IDEB (" + rotulo + ")", "nota", FormaResumo.VARIACAO_PONTOS, true);
+            if (ref != null) {
+                s.setReferenciaNome(ref);
+            }
+            double v = base;
+            for (int ano = t.getAno() - 2 + (t.getAno() % 2 == 0 ? 1 : 0); ano <= ultimo; ano += 2) {
+                s.adicionar(ano, Math.round(v * 10) / 10.0, ref == null ? null : Math.round((base + 0.1 * rnd.nextGaussian())
+                        * 10) / 10.0);
+                v += 0.3 * rnd.nextGaussian();
+            }
+        }
+
+        void contagem(String titulo, int media) {
+            SerieMandato s = nova(TemaMandato.LEIS, titulo, "", FormaResumo.SOMA, null);
+            for (int ano = t.getAno() + 1; ano <= ultimo; ano++) {
+                s.adicionar(ano, Math.max(0, Math.round(media * (0.6 + 0.8 * rnd.nextDouble()))), null);
             }
         }
     }

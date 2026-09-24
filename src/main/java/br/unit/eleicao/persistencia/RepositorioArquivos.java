@@ -7,7 +7,11 @@ import br.unit.eleicao.modelo.Candidato;
 import br.unit.eleicao.modelo.CandidaturaAnterior;
 import br.unit.eleicao.modelo.ContaIrregular;
 import br.unit.eleicao.modelo.Financiamento;
-import br.unit.eleicao.modelo.IndicadorFiscal;
+import br.unit.eleicao.modelo.Cargo;
+import br.unit.eleicao.modelo.FormaResumo;
+import br.unit.eleicao.modelo.PontoSerie;
+import br.unit.eleicao.modelo.SerieMandato;
+import br.unit.eleicao.modelo.TemaMandato;
 import br.unit.eleicao.modelo.ResumoEmendas;
 import br.unit.eleicao.modelo.Sancao;
 import br.unit.eleicao.modelo.VinculoEmpresa;
@@ -59,7 +63,7 @@ public class RepositorioArquivos {
     public static final String EMPRESAS = "empresas.csv";
     public static final String SANCOES = "sancoes.csv";
     public static final String SERVIDOR = "servidor_federal.csv";
-    public static final String GESTAO_FISCAL = "gestao_fiscal.csv";
+    public static final String SERIES_MANDATO = "mandatos_executivo.csv";
     private static final String SEPARADOR_DESTAQUES = " || ";
     /** Quantos locais/áreas das emendas são guardados por parlamentar (os de maior valor pago). */
     private static final int MAIORES_EMENDAS = 8;
@@ -83,7 +87,7 @@ public class RepositorioArquivos {
         lerEmpresas(base, dir.resolve(EMPRESAS));
         lerSancoes(base, dir.resolve(SANCOES));
         lerServidor(base, dir.resolve(SERVIDOR));
-        lerGestaoFiscal(base, dir.resolve(GESTAO_FISCAL));
+        lerSeriesMandato(base, dir.resolve(SERIES_MANDATO));
         lerVotacoes(base, dir.resolve(VOTACOES));
         lerVotos(base, dir.resolve(VOTOS));
         lerDespesas(base, dir.resolve(DESPESAS));
@@ -567,27 +571,58 @@ public class RepositorioArquivos {
         }
     }
 
-    private void lerGestaoFiscal(BaseDados base, Path arquivo) throws ArquivoInvalidoException {
+    private void lerSeriesMandato(BaseDados base, Path arquivo) throws ArquivoInvalidoException {
         if (!Files.exists(arquivo)) {
             return;
         }
         try (LeitorCsv csv = new LeitorCsv(arquivo, StandardCharsets.UTF_8)) {
             int iSq = csv.indice("sq");
+            int iCargo = csv.indice("cargo");
             int iEnte = csv.indice("ente");
-            int iAno = csv.indice("ano");
-            int iPessoal = csv.indice("pessoalRcl");
+            int iEleicao = csv.indice("anoEleicao");
+            int iFim = csv.indice("fimMandato");
+            int iTema = csv.indice("tema");
+            int iTitulo = csv.indice("titulo");
+            int iUnidade = csv.indice("unidade");
+            int iForma = csv.indice("forma");
+            int iMaior = csv.indice("maiorMelhor");
+            int iRefNome = csv.indice("referenciaNome");
+            int iFonte = csv.indice("fonte");
+            int iExpl = csv.indice("explicacao");
             int iLimite = csv.indice("limite");
-            int iDurante = csv.indice("duranteMandato");
+            int iAno = csv.indice("ano");
+            int iValor = csv.indice("valor");
+            int iRef = csv.indice("referencia");
+            Map<String, SerieMandato> abertas = new java.util.HashMap<>();
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
                 Candidato c = base.buscarCandidato(LeitorCsv.campo(l, iSq));
+                Integer eleicao = Texto.parseInteiro(LeitorCsv.campo(l, iEleicao));
+                Integer fim = Texto.parseInteiro(LeitorCsv.campo(l, iFim));
                 Integer ano = Texto.parseInteiro(LeitorCsv.campo(l, iAno));
-                Double pessoal = Texto.parseDecimal(LeitorCsv.campo(l, iPessoal));
-                if (c != null && ano != null && pessoal != null) {
-                    c.adicionarIndicadorFiscal(new IndicadorFiscal(LeitorCsv.campo(l, iEnte), ano, pessoal,
-                            Texto.parseDecimal(LeitorCsv.campo(l, iLimite)),
-                            Boolean.parseBoolean(LeitorCsv.campo(l, iDurante))));
+                Double valor = Texto.parseDecimal(LeitorCsv.campo(l, iValor));
+                if (c == null || eleicao == null || fim == null || ano == null || valor == null) {
+                    continue;
                 }
+                String ente = LeitorCsv.campo(l, iEnte);
+                String titulo = LeitorCsv.campo(l, iTitulo);
+                String chave = c.getSq() + "|" + ente + "|" + eleicao + "|" + titulo;
+                SerieMandato s = abertas.get(chave);
+                if (s == null) {
+                    Cargo cargo = Cargo.valueOf(LeitorCsv.campo(l, iCargo));
+                    String maior = LeitorCsv.campo(l, iMaior);
+                    s = new SerieMandato(SerieMandato.descreverMandato(cargo, ente, eleicao, fim), cargo, ente, eleicao, fim,
+                            TemaMandato.valueOf(LeitorCsv.campo(l, iTema)), titulo, LeitorCsv.campo(l, iUnidade),
+                            FormaResumo.valueOf(LeitorCsv.campo(l, iForma)),
+                            maior.isEmpty() ? null : Boolean.valueOf(maior));
+                    s.setReferenciaNome(LeitorCsv.campo(l, iRefNome));
+                    s.setFonte(LeitorCsv.campo(l, iFonte));
+                    s.setExplicacao(LeitorCsv.campo(l, iExpl));
+                    s.setLimite(Texto.parseDecimal(LeitorCsv.campo(l, iLimite)));
+                    abertas.put(chave, s);
+                    c.adicionarSerieMandato(s);
+                }
+                s.adicionar(ano, valor, Texto.parseDecimal(LeitorCsv.campo(l, iRef)));
             }
         }
     }
@@ -646,12 +681,17 @@ public class RepositorioArquivos {
                 }
             }
         }
-        try (EscritorCsv csv = new EscritorCsv(dir.resolve(GESTAO_FISCAL), "sq", "ente", "ano", "pessoalRcl", "limite",
-                "duranteMandato")) {
+        try (EscritorCsv csv = new EscritorCsv(dir.resolve(SERIES_MANDATO), "sq", "cargo", "ente", "anoEleicao",
+                "fimMandato", "tema", "titulo", "unidade", "forma", "maiorMelhor", "referenciaNome", "fonte",
+                "explicacao", "limite", "ano", "valor", "referencia")) {
             for (Candidato c : base.getCandidatos()) {
-                for (IndicadorFiscal i : c.getGestaoFiscal()) {
-                    csv.escrever(c.getSq(), i.getEnte(), i.getAno(), String.format(java.util.Locale.ROOT, "%.2f",
-                            i.getPessoalRcl()), i.getLimite(), i.isDuranteMandato());
+                for (SerieMandato s : c.getSeriesMandato()) {
+                    for (PontoSerie p : s.getPontos()) {
+                        csv.escrever(c.getSq(), s.getCargo().name(), s.getEnte(), s.getAnoEleicao(), s.getFimMandato(),
+                                s.getTema().name(), s.getTitulo(), s.getUnidade(), s.getForma().name(),
+                                s.getMaiorMelhor(), s.getReferenciaNome(), s.getFonte(), s.getExplicacao(), s.getLimite(),
+                                p.getAno(), p.getValor(), p.getReferencia());
+                    }
                 }
             }
         }

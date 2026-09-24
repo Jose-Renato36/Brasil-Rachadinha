@@ -3,7 +3,8 @@ package br.unit.eleicao.web;
 import br.unit.eleicao.modelo.Candidato;
 import br.unit.eleicao.modelo.CandidaturaAnterior;
 import br.unit.eleicao.modelo.Financiamento;
-import br.unit.eleicao.modelo.IndicadorFiscal;
+import br.unit.eleicao.modelo.PontoSerie;
+import br.unit.eleicao.modelo.SerieMandato;
 import br.unit.eleicao.modelo.Metadados;
 import br.unit.eleicao.modelo.ResumoEmendas;
 import br.unit.eleicao.modelo.Sancao;
@@ -36,11 +37,11 @@ public class FichaComplementar {
         m.put("empresas", empresas(c));
         m.put("sancoes", sancoes(c));
         m.put("servidor", servidor(c));
-        m.put("gestaoFiscal", gestaoFiscal(c));
+        m.put("mandatosExecutivo", mandatosExecutivo(c));
         Map<String, Object> fontes = new LinkedHashMap<>();
         for (String f : new String[]{"tcu", Metadados.FONTE_CASSACAO, Metadados.FONTE_BENS_ANTERIORES,
                 Metadados.FONTE_RECEITAS, Metadados.FONTE_EMENDAS, Metadados.FONTE_EMPRESAS, Metadados.FONTE_SANCOES,
-                Metadados.FONTE_SIAPE, Metadados.FONTE_SICONFI}) {
+                Metadados.FONTE_SIAPE, Metadados.FONTE_MANDATOS}) {
             fontes.put(f, meta.isVerificada(f));
         }
         m.put("fontes", fontes);
@@ -181,18 +182,66 @@ public class FichaComplementar {
         return l;
     }
 
-    private List<Object> gestaoFiscal(Candidato c) {
-        List<Object> l = new ArrayList<>();
-        for (IndicadorFiscal i : c.getGestaoFiscal()) {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("ente", i.getEnte());
-            m.put("ano", i.getAno());
-            m.put("pessoalRcl", i.getPessoalRcl());
-            m.put("limite", i.getLimite());
-            m.put("acimaDoLimite", i.isAcimaDoLimite());
-            m.put("duranteMandato", i.isDuranteMandato());
-            l.add(m);
+    /** Séries agrupadas por mandato e, dentro dele, por tema (Economia, Emprego, Educação...). */
+    private List<Object> mandatosExecutivo(Candidato c) {
+        Map<String, Map<String, Object>> porMandato = new LinkedHashMap<>();
+        for (SerieMandato s : c.getSeriesMandato()) {
+            Map<String, Object> mm = porMandato.computeIfAbsent(s.getMandato(), k -> {
+                Map<String, Object> novo = new LinkedHashMap<>();
+                novo.put("mandato", s.getMandato());
+                novo.put("cargo", s.getCargo().getRotulo());
+                novo.put("ente", s.getEnte());
+                novo.put("anoEleicao", s.getAnoEleicao());
+                novo.put("inicio", s.getAnoEleicao() + 1);
+                novo.put("fim", s.getFimMandato());
+                novo.put("temas", new LinkedHashMap<String, List<Object>>());
+                return novo;
+            });
+            @SuppressWarnings("unchecked")
+            Map<String, List<Object>> temas = (Map<String, List<Object>>) mm.get("temas");
+            temas.computeIfAbsent(s.getTema().getRotulo(), k -> new ArrayList<>()).add(serie(s));
         }
-        return l;
+        List<Object> lista = new ArrayList<>();
+        for (Map<String, Object> mm : porMandato.values()) {
+            @SuppressWarnings("unchecked")
+            Map<String, List<Object>> temas = (Map<String, List<Object>>) mm.get("temas");
+            List<Object> listaTemas = new ArrayList<>();
+            for (Map.Entry<String, List<Object>> e : temas.entrySet()) {
+                Map<String, Object> t = new LinkedHashMap<>();
+                t.put("tema", e.getKey());
+                t.put("series", e.getValue());
+                listaTemas.add(t);
+            }
+            mm.put("temas", listaTemas);
+            lista.add(mm);
+        }
+        return lista;
+    }
+
+    private Map<String, Object> serie(SerieMandato s) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("titulo", s.getTitulo());
+        m.put("unidade", s.getUnidade());
+        m.put("forma", s.getForma().name());
+        m.put("resumo", s.getResumo());
+        m.put("resultado", s.resultado(false));
+        m.put("resultadoReferencia", s.resultado(true));
+        m.put("melhorQueReferencia", s.melhorQueReferencia());
+        m.put("maiorMelhor", s.getMaiorMelhor());
+        m.put("referenciaNome", s.getReferenciaNome());
+        m.put("limite", s.getLimite());
+        m.put("fonte", s.getFonte());
+        m.put("explicacao", s.getExplicacao());
+        List<Object> pontos = new ArrayList<>();
+        for (PontoSerie p : s.getPontos()) {
+            Map<String, Object> pm = new LinkedHashMap<>();
+            pm.put("ano", p.getAno());
+            pm.put("valor", p.getValor());
+            pm.put("referencia", p.getReferencia());
+            pm.put("durante", s.isDuranteMandato(p.getAno()));
+            pontos.add(pm);
+        }
+        m.put("pontos", pontos);
+        return m;
     }
 }

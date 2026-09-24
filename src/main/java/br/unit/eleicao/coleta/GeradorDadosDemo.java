@@ -311,6 +311,12 @@ public class GeradorDadosDemo {
             } else if (i == 1) {
                 c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2022, "PRESIDENTE", "", c.getPartido(),
                         "Não eleito(a)"));
+            } else {
+                // ex-presidente (2019-2022) tentando voltar
+                c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2018, "PRESIDENTE", "", c.getPartido(),
+                        "Eleito(a)"));
+                c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2022, "PRESIDENTE", "", c.getPartido(),
+                        "Não eleito(a)"));
             }
             base.adicionarCandidato(c);
         }

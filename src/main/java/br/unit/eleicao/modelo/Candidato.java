@@ -33,7 +33,7 @@ public class Candidato extends Pessoa {
     private final List<VinculoEmpresa> empresas = new ArrayList<>();
     private final List<Sancao> sancoes = new ArrayList<>();
     private final List<VinculoServidor> vinculosServidor = new ArrayList<>();
-    private final List<IndicadorFiscal> gestaoFiscal = new ArrayList<>();
+    private final List<SerieMandato> seriesMandato = new ArrayList<>();
     private Integer idDeputado;
     private String criterioVinculo;
 
@@ -289,14 +289,16 @@ public class Candidato extends Pessoa {
         return Collections.unmodifiableList(vinculosServidor);
     }
 
-    public void adicionarIndicadorFiscal(IndicadorFiscal i) {
-        gestaoFiscal.add(i);
-        Collections.sort(gestaoFiscal);
+    public void adicionarSerieMandato(SerieMandato s) {
+        seriesMandato.add(s);
     }
 
-    /** Gasto com pessoal do ente que a pessoa governou, antes e durante o mandato. */
-    public List<IndicadorFiscal> getGestaoFiscal() {
-        return Collections.unmodifiableList(gestaoFiscal);
+    /**
+     * Indicadores públicos dos lugares que a pessoa governou (prefeitura, estado, país), antes e durante
+     * cada mandato no Executivo.
+     */
+    public List<SerieMandato> getSeriesMandato() {
+        return Collections.unmodifiableList(seriesMandato);
     }
 
     /**

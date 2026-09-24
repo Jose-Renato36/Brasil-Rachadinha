@@ -10,8 +10,8 @@ e mostra, em linguagem simples, se a pessoa tem preparo para o cargo, o que já 
 ![Java 17](https://img.shields.io/badge/Java-17%2B-1f5fae)
 ![Maven](https://img.shields.io/badge/build-Maven-1f5fae)
 ![Sem dependências](https://img.shields.io/badge/depend%C3%AAncias%20em%20execu%C3%A7%C3%A3o-nenhuma-1b7f4b)
-![Testes](https://img.shields.io/badge/testes-55%20passando-1b7f4b)
-![Dados abertos](https://img.shields.io/badge/dados-TSE%20%C2%B7%20C%C3%A2mara%20%C2%B7%20Senado%20%C2%B7%20TCU%20%C2%B7%20CGU%20%C2%B7%20Receita%20%C2%B7%20Tesouro-5d5c57)
+![Testes](https://img.shields.io/badge/testes-61%20passando-1b7f4b)
+![Dados abertos](https://img.shields.io/badge/dados-TSE%20%C2%B7%20C%C3%A2mara%20%C2%B7%20Senado%20%C2%B7%20TCU%20%C2%B7%20CGU%20%C2%B7%20IBGE%20%C2%B7%20INEP%20%C2%B7%20Tesouro%20%C2%B7%20BCB-5d5c57)
 
 <img src="docs/imagens/inicio.png" alt="Página inicial: busca por nome ou número, escolha do estado e do cargo" width="820">
 
@@ -34,7 +34,8 @@ que o eleitor faz de verdade:
 
 - **Tem preparo para o cargo?** Idade mínima, formação e anos de experiência no mesmo tipo de função.
 - **Já foi político? O que fez, quando e onde?** Mandatos anteriores, presença em votações, projetos, emendas
-  e, para ex-prefeitos e ex-governadores, como estavam as contas antes e durante o mandato.
+  e, para quem já foi prefeito, governador ou presidente, como estavam a economia, o emprego, a educação e as
+  contas do lugar antes e durante o mandato, comparados com o estado ou o Brasil.
 - **Tem algo que mereça atenção?** Contas rejeitadas pelo TCU, cassações e sanções administrativas.
 - **Quem paga a campanha e como mudou o patrimônio?**
 
@@ -52,12 +53,12 @@ quem já foi eleito(a) e quem tem mandato hoje, com uma linha do tempo de 2018 a
 São fatos com fonte, sem nota. Quando uma fonte não foi consultada, o site diz "não consultado", nunca "nada consta".</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/imagens/antes-depois.png" alt="Antes e depois do mandato, patrimônio e financiamento, no tema escuro"></td>
+<td width="50%"><img src="docs/imagens/antes-depois.png" alt="Como estava a cidade quando a pessoa foi prefeita, comparada com o estado"></td>
 <td width="50%" align="center"><img src="docs/imagens/celular.png" alt="Ficha no celular" width="220"></td>
 </tr>
 <tr>
-<td><b>Antes e depois, patrimônio e financiamento.</b> Gasto com pessoal ano a ano em relação ao limite da Lei de
-Responsabilidade Fiscal, bens declarados em cada eleição e a origem do dinheiro da campanha.</td>
+<td><b>Como estava o lugar quando a pessoa governou.</b> PIB, empregos, IDEB e contas antes e durante o mandato,
+sempre ao lado do estado ou do Brasil no mesmo período. Vale para prefeito, governador e presidente.</td>
 <td><b>Funciona no celular e no tema escuro.</b></td>
 </tr>
 </table>
@@ -72,7 +73,7 @@ Responsabilidade Fiscal, bens declarados em cada eleição e a origem do dinheir
 | **Trajetória política** | candidaturas de 2018 a 2024 (inclusive vereador e prefeito) e resultado de cada uma | TSE |
 | **O que fez nos mandatos** | presença nas votações, projetos, aprovados e verba de gabinete; atuação no Senado | Câmara, Senado |
 | **Emendas parlamentares** | quanto indicou e quanto foi pago, para quais cidades e áreas, parte em "emenda Pix" | Portal da Transparência |
-| **Antes e depois** | ex-prefeitos e ex-governadores: gasto com pessoal em % da receita, ano a ano, com o limite da LRF | Tesouro (SICONFI) |
+| **Como estava o lugar quando governou** | ex-prefeitos, ex-governadores e ex-presidentes: PIB, empregos, desemprego, IDEB, gasto com pessoal, investimento e contas; para presidente também inflação, dívida, medidas provisórias e projetos aprovados. Sempre ao lado do estado ou do Brasil no mesmo período | IBGE, INEP, Tesouro, Banco Central, Câmara |
 | **Patrimônio** | bens declarados em cada eleição disputada | TSE |
 | **Quem paga a campanha** | fundo eleitoral, partido, doações, dinheiro próprio e vaquinha | TSE (prestação de contas) |
 | **Fora da política** | empresas de que é sócio(a) e vínculo com o serviço público federal | Receita Federal, Portal da Transparência |
@@ -136,7 +137,10 @@ Os detalhes de cada fonte (URLs, colunas, codificação e armadilhas) estão em 
 | **TCU** | lista de responsáveis com contas julgadas irregulares (Ficha Limpa) |
 | **CGU / Portal da Transparência** | emendas parlamentares, CEIS, CNEP, servidores federais (SIAPE) |
 | **Receita Federal** | quadro de sócios do CNPJ (opcional) |
-| **Tesouro Nacional** | SICONFI: Relatório de Gestão Fiscal de estados e municípios |
+| **Tesouro Nacional** | SICONFI: gestão fiscal e execução orçamentária de estados e municípios |
+| **IBGE** | PIB, empregos formais (CEMPRE) e desemprego (PNAD Contínua) |
+| **INEP** | IDEB por município, estado e Brasil |
+| **Banco Central** | crescimento do PIB, inflação e dívida pública |
 
 ## Princípios
 
@@ -165,7 +169,8 @@ src/main/java/br/unit/eleicao/
 ├── preparo/          CriterioPreparo (abstrata) → 8 critérios; QuadroPreparo aplica todos
 ├── indicador/        Indicador (abstrata) → presença, verba, projetos, patrimônio, alinhamento
 ├── ranking/          MetodoRanking (abstrata) → SomaPonderada, Topsis
-├── coleta/           um leitor por fonte (TSE, Câmara, Senado, TCU, emendas, CNPJ, CEIS/CNEP, SIAPE, SICONFI)
+├── coleta/           um leitor por fonte (TSE, Câmara, Senado, TCU, emendas, CNPJ, CEIS/CNEP, SIAPE)
+│   └── mandato/      FonteMandato (abstrata) → IBGE (PIB, emprego, desemprego), SICONFI, INEP, Banco Central, Câmara
 ├── persistencia/     RepositorioArquivos: cache em CSV
 ├── excecao/          DadosException → ArquivoInvalidoException, ColetaException
 ├── util/             LeitorCsv, EscritorCsv, Texto, Estatistica, Xml
@@ -182,10 +187,10 @@ interface usam recursos padrão do JDK e da web.
 | Conteúdo | Onde |
 |---|---|
 | Classes, encapsulamento, construtores, pacotes | `modelo/` (validação em `PosicaoUsuario` e `ConfiguracaoRanking`) |
-| Herança | `Pessoa → Candidato/Deputado`, `Indicador → 5 indicadores`, `CriterioPreparo → 8 critérios`, `MetodoRanking → SomaPonderada/Topsis`, exceções |
+| Herança | `Pessoa → Candidato/Deputado`, `Indicador → 5 indicadores`, `CriterioPreparo → 8 critérios`, `FonteMandato → 7 fontes`, `MetodoRanking → SomaPonderada/Topsis`, exceções |
 | Polimorfismo / override | `avaliar` em cada critério de preparo; `calcular`, `formatar`, `resumir` em cada indicador; `equals`/`hashCode`/`toString` |
 | Overload | `formatar(...)`, `resumir(...)`, `ArquivosBrutos.abrir(...)`, construtores |
-| Enum | `GrauInstrucao`, `Elegibilidade`, `Cargo`, `Avaliacao`, `Sentido` |
+| Enum | `GrauInstrucao`, `Elegibilidade`, `Cargo`, `Avaliacao`, `TemaMandato`, `FormaResumo`, `Sentido` |
 | Exceções | exceções próprias, `try-with-resources`, `throw`, multi-catch |
 | Arquivos | `LeitorCsv`/`EscritorCsv`, `Properties`, leitura de `.zip` em fluxo, JSON e XML |
 | Coleções | `ArrayList`, `HashMap`, `TreeMap`, `LinkedHashMap`, `HashSet`, `Collections.unmodifiable…` |
@@ -199,10 +204,10 @@ interface usam recursos padrão do JDK e da web.
 mvn test
 ```
 
-São 55 testes. Eles cobrem estatística, leitura de CSV, cada indicador, ranking (soma ponderada, TOPSIS,
+São 61 testes. Eles cobrem estatística, leitura de CSV, cada indicador, ranking (soma ponderada, TOPSIS,
 cobertura mínima), elegibilidade, cruzamento de identidades, o quadro de preparo e a coleta completa sobre
 arquivos pequenos no **layout real** de cada fonte (TSE, Câmara, Senado, TCU, receitas, emendas, CEIS/CNEP,
-SIAPE, CNPJ e SICONFI). Também testam o servidor web respondendo como o navegador.
+SIAPE, CNPJ, SICONFI, IBGE, INEP, Banco Central e os projetos do Executivo na Câmara). Também testam o servidor web respondendo como o navegador.
 
 ## Limitações conhecidas
 
@@ -211,7 +216,8 @@ SIAPE, CNPJ e SICONFI). Também testam o servidor web respondendo como o navegad
 - Mandatos em **assembleias e câmaras municipais** não têm base nacional padronizada: o site indica onde consultar.
 - Empresas, sanções e serviço público dependem de o TSE publicar o CPF completo; quando vem mascarado, essas
   partes aparecem como "não consultado".
-- O "antes e depois" mostra só a responsabilidade fiscal; indicadores de educação e saúde ficaram para depois.
+- O "antes e depois" não inclui saúde nem os mínimos constitucionais de saúde e educação: o Tesouro não publica
+  esses anexos pela API. O PIB dos municípios sai com cerca de 2 anos de atraso.
 
 ## Contribuindo
 

@@ -158,10 +158,11 @@ public class PipelineColeta {
         if (new ServidoresFederais(pastaBrutos(), log).processar(todos, tse.getCpfPorSq())) {
             meta.marcarVerificada(Metadados.FONTE_SIAPE);
         }
-        log.accept(baixar ? "Consultando gasto com pessoal de prefeituras e governos (SICONFI)..."
-                : "Lendo dados fiscais já baixados (SICONFI)...");
-        if (new GestaoFiscalSiconfi(pastaBrutos(), baixar ? new Downloader(log) : null, log).processar(todos, anoEleicao)) {
-            meta.marcarVerificada(Metadados.FONTE_SICONFI);
+        log.accept(baixar ? "Consultando indicadores de quem já governou (IBGE, Tesouro, INEP, Banco Central)..."
+                : "Lendo indicadores de gestão já baixados...");
+        if (new br.unit.eleicao.coleta.mandato.IndicadoresMandato(pastaBrutos(), baixar ? new Downloader(log) : null,
+                log, anoEleicao).processar(todos)) {
+            meta.marcarVerificada(Metadados.FONTE_MANDATOS);
         }
 
         Path destino = pastaProcessada(uf);
