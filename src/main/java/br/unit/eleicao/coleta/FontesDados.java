@@ -63,6 +63,56 @@ public final class FontesDados {
         return TSE + "bem_candidato/bem_candidato_" + ano + ".zip";
     }
 
+    /** Motivos de cassação/indeferimento por candidatura (SQ_CANDIDATO, DS_MOTIVO_CASSACAO). */
+    public static String motivoCassacao(int ano) {
+        return TSE + "motivo_cassacao/motivo_cassacao_" + ano + ".zip";
+    }
+
+    /** Prestação de contas dos candidatos (receitas_candidatos_ANO_UF.csv dentro do zip). */
+    public static String prestacaoContas(int ano) {
+        return TSE + "prestacao_contas/prestacao_de_contas_eleitorais_candidatos_" + ano + ".zip";
+    }
+
+    /** Emendas parlamentares ao Orçamento da União desde 2014 (Portal da Transparência / CGU). */
+    public static String emendas() {
+        return "https://dadosabertos-download.cgu.gov.br/PortalDaTransparencia/saida/emendas-parlamentares/"
+                + "EmendasParlamentares.zip";
+    }
+
+    /** CEIS ou CNEP de um dia (AAAAMMDD); o portal só guarda arquivos recentes. */
+    public static String sancoes(String cadastro, java.time.LocalDate dia) {
+        return "https://portaldatransparencia.gov.br/download-de-dados/" + cadastro.toLowerCase() + "/"
+                + dia.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+    }
+
+    /** Servidores civis do Executivo federal de um mês (zip com AAAAMM_Cadastro.csv). */
+    public static String servidoresSiape(java.time.YearMonth mes) {
+        return "https://portaldatransparencia.gov.br/download-de-dados/servidores/"
+                + mes.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMM")) + "_Servidores_SIAPE";
+    }
+
+    /** Pasta mensal dos dados abertos do CNPJ (Socios0.zip ... Socios9.zip, Empresas0.zip ...). */
+    public static String cnpj(java.time.YearMonth mes, String arquivo) {
+        return "https://arquivos.receitafederal.gov.br/dados/cnpj/dados_abertos_cnpj/"
+                + mes.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM")) + "/" + arquivo;
+    }
+
+    /** API do SICONFI (Tesouro Nacional): relatórios fiscais de estados e municípios, em JSON. */
+    public static String siconfiRgf(int ano, char periodicidade, int periodo, char esfera, String codigoIbge) {
+        return "https://apidatalake.tesouro.gov.br/ords/siconfi/tt/rgf?an_exercicio=" + ano
+                + "&in_periodicidade=" + periodicidade + "&nr_periodo=" + periodo
+                + "&co_tipo_demonstrativo=RGF&no_anexo=RGF-Anexo%2001&co_esfera=" + esfera
+                + "&co_poder=E&id_ente=" + codigoIbge;
+    }
+
+    /**
+     * Tabela de correspondência entre o código de município do TSE e o do IBGE (projeto aberto
+     * betafcc/Municipios-Brasileiros-TSE, montado a partir dos arquivos do próprio TSE).
+     */
+    public static String municipiosTseIbge() {
+        return "https://raw.githubusercontent.com/betafcc/Municipios-Brasileiros-TSE/master/municipios_brasileiros_tse.csv";
+    }
+
     /** Nome do arquivo local = último trecho da URL. */
     public static String nomeLocal(String url) {
         return url.substring(url.lastIndexOf('/') + 1);

@@ -139,44 +139,90 @@ e o separador e a codificação são detectados.
 - "Não consta" só aparece quando a lista foi de fato lida.
 - Estar na lista não significa inelegibilidade automática: quem decide é a Justiça Eleitoral.
 
-### Por que não há "avaliação" de prefeitos e governadores
+## Preparo para o cargo
 
-Não existe base nacional padronizada que diga como foi uma gestão municipal ou estadual. Há dados
-fiscais (SICONFI/Tesouro) e indicadores setoriais (IDEB, saúde), mas transformá-los em "desempenho do
-gestor" exige escolhas de método fortes e ligações por código de município que não temos no TSE. Por
-isso o sistema mostra onde e quando a pessoa governou, se há contas irregulares no TCU, e indica os
-Tribunais de Contas e portais de transparência como próximo passo.
+O quadro "Preparo para o cargo" (pacote `preparo/`) não cria nota: mostra fatos verificáveis em três grupos.
 
-## Fontes avaliadas para próximos passos
-
-| Fonte | O que traria | Situação |
+| Item | Regra | Fonte |
 |---|---|---|
-| TSE – prestação de contas eleitorais (`prestacao_de_contas_eleitorais_candidatos_{ano}`) | quem financiou a campanha (fundo eleitoral, partido, pessoas físicas, recursos próprios) | aberta e padronizada; boa próxima etapa |
-| TSE – votação por candidato (`votacao_candidato_munzona_{ano}`) | quantos votos recebeu nas eleições anteriores | aberta; arquivos grandes |
-| Câmara – legislaturas anteriores (mesmos arquivos em lote, 2019-2022) | presença e projetos de ex-deputados federais que voltam a concorrer | mesma estrutura já lida; exige separar os indicadores por legislatura |
-| Câmara – API `/deputados/{id}/orgaos`, `/frentes` | comissões e frentes parlamentares de que participa | aberta; informativo |
-| Senado – API de dados abertos (`legis.senado.leg.br/dadosabertos`) | mandatos e votações de ex-senadores | aberta; caso raro para deputado federal |
-| Assembleias legislativas e câmaras municipais | atuação de deputados estaduais e vereadores | **sem padrão nacional**: cada casa publica (ou não) de um jeito; algumas têm API própria |
-| Portal da Transparência (CGU) – emendas parlamentares | para onde o deputado mandou emendas | exige cadastro de chave de acesso |
-| Processos judiciais | — | não há base aberta e estruturada confiável; risco de erro e de dano à reputação: fora do escopo |
+| Idade mínima | CF art. 14, § 3º, VI: 35 anos (presidente, vice, senador), 30 (governador, vice), 21 (deputados, prefeito, vice), 18 (vereador), **na data da posse**: 1º/1 (municipais), 5/1 (presidente) e 6/1 (governador) a partir de 2027 (EC 111/2021), 1º/2 (Congresso e Assembleias) | TSE (data de nascimento) |
+| Registro | situação do registro (apta, em análise, com recurso, inapta) | TSE |
+| Formação | escolaridade declarada; a lei só exige saber ler e escrever. O curso não é publicado | TSE |
+| Experiência em cargos eletivos | anos de mandato desde 2018, separando Executivo e Legislativo | TSE (trajetória) |
+| Experiência na mesma função | já exerceu o mesmo cargo, ou outro do mesmo poder | TSE (trajetória) |
+| Alertas | contas irregulares (TCU), cassações (TSE), sanções (CGU). "Não consultado" é diferente de "nada consta" | TCU, TSE, CGU |
 
+## Patrimônio ao longo do tempo e cassações (TSE)
 
-## Proposta: analisar o período dos mandatos executivos
+- `bem_candidato_{ano}.zip` de **todas** as eleições da trajetória (2018, 2020, 2022, 2024), ligados pelo
+  `SQ_CANDIDATO` da candidatura antiga (descoberto ao montar a trajetória). Mesmo layout do arquivo atual.
+  Quando o arquivo existe e a pessoa não aparece nele, conta como "declarou não ter bens" (R$ 0).
+- `motivo_cassacao/motivo_cassacao_{ano}.zip` (entrada `motivo_cassacao_{ano}_{UF}.csv`): colunas
+  `SQ_CANDIDATO` e `DS_MOTIVO_CASSACAO` (conferidas em projetos abertos que leem o arquivo).
 
-É possível, com ressalvas. A ideia: para quem já foi prefeito(a) ou governador(a), olhar indicadores públicos
-do município/estado **no período do mandato** e comparar com o que aconteceu, no mesmo período, em lugares
-parecidos (mesmo estado, porte semelhante). Isso descreve *o que aconteceu durante a gestão*, não prova que
-foi *por causa* dela.
+## Financiamento da campanha (TSE)
 
-| Peça | Fonte | Situação |
-|---|---|---|
-| Ligar o município do TSE ao código IBGE | tabela pública TSE × IBGE ([betafcc/Municipios-Brasileiros-TSE](https://github.com/betafcc/Municipios-Brasileiros-TSE), 5.570 municípios; conferida) | pronta para usar |
-| Contas públicas por ano (despesa com pessoal, investimento, saúde e educação mínimas, endividamento) | SICONFI / Tesouro Nacional (API `apidatalake.tesouro.gov.br/ords/siconfi/tt/...`, por `id_ente` = código IBGE e `an_exercicio`) | API aberta; exige pesquisar os campos de cada anexo antes de usar |
-| Educação | IDEB por município e rede (INEP, a cada 2 anos) | planilhas abertas |
-| Saúde | mortalidade infantil, cobertura vacinal (DATASUS) | aberto, mas trabalhoso |
+- `prestacao_contas/prestacao_de_contas_eleitorais_candidatos_{ano}.zip`, entrada `receitas_candidatos_{ano}_{UF}.csv`
+  (o zip também traz `receitas_candidatos_doador_originario_...`, que **não** é lido: por isso o leitor exige
+  o prefixo além do sufixo da UF). 48 colunas, `;`, ISO-8859-1; usadas `SQ_CANDIDATO`, `DS_FONTE_RECEITA`
+  (Fundo Especial / Fundo Partidário / Outros Recursos), `DS_ORIGEM_RECEITA`, `SQ_RECEITA`, `VR_RECEITA`.
+- Agrupamos em: fundo eleitoral, fundo partidário (os dois = dinheiro público), doações de pessoas, recursos
+  próprios, vaquinha on-line, repasses de partidos/candidatos, outras.
+- Durante a campanha o arquivo é parcial. Se o TSE ainda não tiver publicado o de 2026, a ficha diz
+  "não consultado".
 
-Método sugerido: variação do indicador entre o início e o fim do mandato, comparada com a mediana dos
-municípios do mesmo estado e faixa de população no mesmo período; sempre mostrando os números brutos e a
-fonte, sem virar nota. Limites: vereadores e deputados estaduais não se encaixam (não são gestores);
-mandatos de 2021–2024 ainda podem ter dados fiscais incompletos; e prefeito não controla sozinho indicadores
-como IDEB ou mortalidade.
+## Emendas parlamentares (Portal da Transparência / CGU)
+
+- `https://dadosabertos-download.cgu.gov.br/PortalDaTransparencia/saida/emendas-parlamentares/EmendasParlamentares.zip`
+  (sem chave de acesso), entrada `EmendasParlamentares.csv`, `;`, Windows-1252, desde 2014.
+- Colunas usadas: `Ano da Emenda`, `Tipo de Emenda`, `Nome do Autor da Emenda`, `Localidade de aplicação do recurso`,
+  `Nome Função`, `Valor Empenhado`, `Valor Pago`.
+- Só **emendas individuais** (em "de relator" o autor é o relator-geral; bancada e comissão não são pessoas).
+  "Transferências Especiais" = as chamadas emendas Pix.
+- O arquivo não tem CPF: a ligação é pelo nome parlamentar, **apenas** para quem foi deputado(a) federal ou
+  senador(a) e só quando o nome aponta para uma única candidatura. A ficha pede para conferir.
+
+## Empresas (Receita Federal) e sanções (CGU)
+
+- **CNPJ**: `arquivos.receitafederal.gov.br/dados/cnpj/dados_abertos_cnpj/AAAA-MM/` com `Socios0..9.zip`,
+  `Empresas0..9.zip`, `Qualificacoes.zip`. Sem cabeçalho, `;`, ISO-8859-1. Sócios: `cnpj_basico;
+  identificador (2 = pessoa física); nome; cpf mascarado ***123456**; qualificação; data de entrada (AAAAMMDD); ...`.
+  São vários GB: só baixados com `coletar BR --empresas` (ou coloque os zips em `dados/brutos/cnpj/`).
+- **CEIS/CNEP**: `portaldatransparencia.gov.br/download-de-dados/ceis/AAAAMMDD` (o portal guarda poucos dias; o
+  coletor tenta os últimos 10), zip com `AAAAMMDD_CEIS.csv`, `;`, Windows-1252. Colunas: `TIPO DE PESSOA`,
+  `CPF OU CNPJ DO SANCIONADO` (CPF mascarado), `NOME DO SANCIONADO`, `CATEGORIA DA SANÇÃO`, `DATA INÍCIO SANÇÃO`,
+  `DATA FINAL SANÇÃO`, `ÓRGÃO SANCIONADOR`.
+- **Ligação**: pessoa física por nome completo **e** os 6 dígitos visíveis do CPF iguais aos do CPF informado ao
+  TSE; empresa pelos 8 primeiros dígitos do CNPJ das empresas de que a pessoa é sócia.
+- Não tratamos filiação sindical: é dado pessoal sensível (LGPD, art. 5º, II) e não há base pública por pessoa.
+
+## Servidores federais (SIAPE)
+
+- `portaldatransparencia.gov.br/download-de-dados/servidores/AAAAMM_Servidores_SIAPE` (zip com `AAAAMM_Cadastro.csv`),
+  `;`, Windows-1252. Colunas: `NOME`, `CPF` (mascarado), `DESCRICAO_CARGO`, `ORG_LOTACAO`, `ORG_EXERCICIO`,
+  `SITUACAO_VINCULO`, `DATA_INGRESSO_SERVICOPUBLICO`. Mesma regra de ligação (nome + CPF parcial).
+- Cobre só servidores civis do **Executivo federal**; servidores estaduais e municipais não aparecem.
+
+## Antes e depois de prefeitos e governadores (SICONFI)
+
+- API `https://apidatalake.tesouro.gov.br/ords/siconfi/tt/rgf?an_exercicio=ANO&in_periodicidade=Q&nr_periodo=3&co_tipo_demonstrativo=RGF&no_anexo=RGF-Anexo%2001&co_esfera=M|E&co_poder=E&id_ente=IBGE`.
+  Municípios pequenos podem publicar por semestre: sem resposta em `Q/3`, tentamos `S/2`.
+- Do Anexo 1 (despesa com pessoal) usamos `cod_conta = DespesaComPessoalTotal` e `LimiteMaximoDespesaComPessoalTotal`
+  na coluna `% sobre a RCL Ajustada` (mesmos códigos usados por outro projeto aberto que valida a API).
+- O município do TSE (`SG_UE` da candidatura antiga) vira código IBGE pela tabela
+  [betafcc/Municipios-Brasileiros-TSE](https://github.com/betafcc/Municipios-Brasileiros-TSE); governos estaduais
+  usam o código IBGE da UF.
+- O ano da eleição é o "antes" (quem governava era o antecessor); os seguintes, o mandato. Só exercícios
+  encerrados. É **uma** dimensão da gestão (responsabilidade fiscal), não uma avaliação de desempenho; IDEB e
+  indicadores de saúde ficaram de fora porque o INEP publica planilhas que exigiriam bibliotecas externas.
+  Respostas guardadas em `dados/brutos/siconfi/`.
+
+## Fontes avaliadas e não usadas
+
+| Fonte | Motivo |
+|---|---|
+| TSE – votação por candidato (`votacao_candidato_munzona`) | arquivos muito grandes para pouco ganho na decisão |
+| Assembleias legislativas e câmaras municipais | sem padrão nacional |
+| Filiação sindical | dado sensível (LGPD) e sem base pública individual |
+| Processos judiciais | sem base aberta estruturada confiável; risco de erro e dano à reputação |
+| IDEB / DATASUS por município | planilhas e sistemas que exigiriam bibliotecas externas; ficam como próximo passo |

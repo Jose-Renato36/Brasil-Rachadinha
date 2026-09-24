@@ -52,6 +52,8 @@ import java.util.stream.Stream;
  */
 public class ServicoApi {
 
+    private final FichaComplementar ficha = new FichaComplementar();
+
     private final Path raiz;
     private final List<Indicador> indicadores = CatalogoIndicadores.todos();
     private final RepositorioArquivos repositorio = new RepositorioArquivos();
@@ -244,6 +246,15 @@ public class ServicoApi {
         m.put("experiencia", exp[0]);
         m.put("experienciaTexto", exp[1]);
         m.put("contasIrregulares", c.getContasIrregulares().size());
+        int cassacoes = 0;
+        for (CandidaturaAnterior t : c.getTrajetoria()) {
+            if (!t.getMotivoCassacao().isEmpty()) {
+                cassacoes++;
+            }
+        }
+        m.put("alertas", c.getContasIrregulares().size() + c.getSancoes().size() + cassacoes);
+        m.put("superior", c.getGrauInstrucao() == br.unit.eleicao.modelo.GrauInstrucao.SUPERIOR_COMPLETO);
+        m.put("escolaridadeCurta", c.getGrauInstrucao().getDescricao());
         List<Object> linha = new ArrayList<>();
         for (CandidaturaAnterior t : c.getTrajetoria()) {
             Map<String, Object> tm = new LinkedHashMap<>();
@@ -385,6 +396,8 @@ public class ServicoApi {
             tm.put("resultado", t.getResultado());
             tm.put("eleito", t.isEleito());
             tm.put("fimMandato", t.getFimMandato());
+            tm.put("patrimonio", t.getPatrimonio());
+            tm.put("motivoCassacao", t.getMotivoCassacao());
             trajetoria.add(tm);
         }
         m.put("trajetoria", trajetoria);
@@ -409,6 +422,7 @@ public class ServicoApi {
             contas.add(cm);
         }
         m.put("contas", contas);
+        m.putAll(ficha.montar(c, meta));
         int[] anos = br.unit.eleicao.coleta.ProcessadorTrajetoria.anosAnteriores(meta.getAnoEleicao());
         m.put("trajetoriaDe", anos[0]);
         m.put("trajetoriaAte", anos[anos.length - 1]);

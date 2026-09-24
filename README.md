@@ -34,7 +34,7 @@ A coleta também pode ser feita **pelo próprio site**, na aba **Dados**: escolh
 | Comando | O que faz |
 |---|---|
 | `web [UF\|demo] [porta]` | sobe o site (padrão: demonstração, porta 8080 ou a próxima livre) |
-| `coletar BR [2026] [--sem-download]` | baixa e processa o **Brasil inteiro** (ou `coletar SE` para um estado); `--sem-download` usa só o que está em `dados/brutos/` |
+| `coletar BR [2026] [--sem-download] [--empresas]` | baixa e processa o **Brasil inteiro** (ou `coletar SE` para um estado); `--sem-download` usa só o que está em `dados/brutos/`; `--empresas` baixa também os dados do CNPJ (vários GB) |
 | `ranking SE\|demo` | imprime o ranking com pesos iguais no console |
 
 ## O site
@@ -42,7 +42,7 @@ A coleta também pode ser feita **pelo próprio site**, na aba **Dados**: escolh
 | Aba | Para quê |
 |---|---|
 | **Início** | "Onde você vota?", busca por nome ou número e escolha do cargo (os do seu estado + Presidência) |
-| **Candidatos** | todas as candidaturas do cargo em **cartões**: estreante, já concorreu, já eleito(a), com mandato hoje, e uma linha do tempo 2018–2024. Ao clicar, o cartão abre com a trajetória, o que fez nos mandatos (presença, projetos, verba), contas no TCU, bens e dados pessoais |
+| **Candidatos** | todas as candidaturas do cargo em **cartões**: estreante, já concorreu, já eleito(a), com mandato hoje, e uma linha do tempo 2018–2024. Ao clicar, o cartão abre com o quadro **Preparo para o cargo**, a trajetória, o que fez nos mandatos (presença, projetos, verba, emendas, gasto com pessoal antes e depois), patrimônio em cada eleição, quem paga a campanha, empresas, serviço público federal e alertas (TCU, CGU, cassações) |
 | **O que importa pra mim** | para cada critério: *Não importa / Importa / Importa muito*; a lista se reorganiza na hora. Opções avançadas: pesos de 0 a 10, inverter o sentido, TOPSIS, cobertura mínima |
 | **Minhas opiniões** | projetos já votados no Plenário, um por vez: *Eu votaria SIM / NÃO / Pular*. Alimenta o critério "Vota como eu votaria" |
 | **Perfil** | número na urna, situação da candidatura, cada indicador com o cálculo e a fonte, projetos aprovados e a **trajetória política** (candidaturas e mandatos desde 2018, inclusive vereador, prefeito e deputado estadual) |
@@ -64,6 +64,13 @@ A coleta também pode ser feita **pelo próprio site**, na aba **Dados**: escolh
 | Trajetória política | TSE 2018-2024 | candidaturas anteriores e mandato atual; **contexto, não nota** |
 | Atuação em mandatos | Câmara 2019-2023 e 2023-hoje, API do Senado | presença, projetos, aprovados, verba; **contexto, não nota** |
 | Contas irregulares | TCU (lista da Ficha Limpa) | processos ligados pelo CPF; **contexto, não nota** |
+| Preparo para o cargo | TSE, TCU, CGU | idade mínima na posse, registro, formação, anos de mandato (Executivo/Legislativo), experiência na mesma função, alertas; **contexto, não nota** |
+| Patrimônio ao longo do tempo | TSE 2018-2026 | bens declarados em cada eleição disputada |
+| Financiamento | TSE (prestação de contas) | receitas da campanha por origem; % de dinheiro público |
+| Emendas | Portal da Transparência | emendas individuais: pago, empenhado, locais, áreas, emendas Pix |
+| Empresas e sanções | Receita Federal (CNPJ), CGU (CEIS/CNEP) | sociedades e punições, ligadas por nome + CPF parcial |
+| Serviço público federal | Portal da Transparência (SIAPE) | cargo, órgão e situação |
+| Antes e depois | Tesouro (SICONFI) | gasto com pessoal em % da receita, ano a ano, para ex-prefeitos e governadores |
 
 "Sem dados" nunca vira zero. Por padrão só recebe nota quem tem dados em pelo menos **2 critérios**,
 para um estreante não ficar em 1º lugar avaliado só pelo patrimônio. Gênero e cor/raça aparecem só no
@@ -77,6 +84,9 @@ projetos abertos que processam os mesmos arquivos). Detalhes, URLs, codificaçõ
 
 - **TSE**: `consulta_cand`, `consulta_cand_complementar` e `bem_candidato` de 2026 e 2022
   (ZIP com um CSV por UF, `;`, ISO-8859-1). O CPF vem preenchido, o que permite cruzar com a Câmara.
+- **Complementares**: bens e cassações das eleições anteriores, prestação de contas (TSE); emendas, CEIS/CNEP
+  e SIAPE (Portal da Transparência); CNPJ (Receita, opcional); SICONFI (Tesouro). Se uma delas faltar,
+  a ficha diz "não consultado" em vez de "nada consta".
 - **Câmara**: arquivos em lote `votacoes`, `votacoesVotos`, `votacoesProposicoes`, `proposicoes`,
   `proposicoesAutores`, `deputados` (CSV UTF-8 com BOM), a cota `Ano-{ano}.csv.zip` e a API
   `/deputados/{id}/historico` para licenças.
@@ -101,8 +111,11 @@ src/main/java/br/unit/eleicao/
 ├── excecao/              DadosException (checked) → ArquivoInvalidoException, ColetaException
 ├── util/                 LeitorCsv, EscritorCsv, Texto, Estatistica (média, desvio, z, Pearson, regressão)
 ├── coleta/               FontesDados, Downloader, ProcessadorTSE, ProcessadorCamara, HistoricoDeputados,
-│                         CruzadorIdentidades, PipelineColeta, GeradorDadosDemo
+│                         CruzadorIdentidades, HistoricoTse, FinanciamentoCampanha, EmendasParlamentares,
+│                         EmpresasReceita, SancoesCgu, ServidoresFederais, GestaoFiscalSiconfi,
+│                         PipelineColeta, GeradorDadosDemo
 ├── persistencia/         RepositorioArquivos (cache em dados/processados/UF)
+├── preparo/              CriterioPreparo (abstrata) → 8 critérios; QuadroPreparo aplica todos
 ├── indicador/            Indicador (abstrata) → 5 indicadores
 ├── ranking/              Normalizador, MetodoRanking (abstrata) → SomaPonderada, Topsis
 └── web/                  ServidorWeb (HTTP), ServicoApi (regras da API), Json
@@ -114,10 +127,10 @@ src/main/resources/web/   index.html, estilo.css, app.js, metodologia.html
 | Conteúdo | Onde |
 |---|---|
 | Classes, encapsulamento, construtores, pacotes | `modelo/` (atributos privados, validação em `PosicaoUsuario` e `ConfiguracaoRanking`) |
-| Herança | `Pessoa → Candidato/Deputado`, `Indicador → 5 indicadores`, `MetodoRanking → SomaPonderada/Topsis`, exceções |
+| Herança | `Pessoa → Candidato/Deputado`, `Indicador → 5 indicadores`, `CriterioPreparo → 8 critérios`, `MetodoRanking → SomaPonderada/Topsis`, exceções |
 | Polimorfismo / override | `calcular`, `formatar`, `resumir` em cada indicador; `GastoCota` sobrescreve `calcularTodos`; `equals`/`hashCode`/`toString` |
 | Overload | `formatar(double)` / `formatar(ResultadoIndicador)`, `resumir(...)`, construtores das exceções |
-| Enum | `GrauInstrucao`, `Elegibilidade`, `Sentido` |
+| Enum | `GrauInstrucao`, `Elegibilidade`, `Sentido`, `Cargo`, `Avaliacao` |
 | Métodos estáticos | `Texto`, `Estatistica`, `FontesDados`, `Json` |
 | Exceções | exceções próprias, `try-with-resources`, `throw`, multi-catch |
 | Arquivos texto e binários | `LeitorCsv`/`EscritorCsv`, `Files`, `Properties`, leitura de `.zip` em fluxo |
@@ -126,10 +139,10 @@ src/main/resources/web/   index.html, estilo.css, app.js, metodologia.html
 
 ## Testes
 
-`mvn test` roda 40 testes (a coleta completa inclui Senado e TCU em cache): estatística, CSV, cada indicador (inclusive presença descontando licenças),
+`mvn test` roda 55 testes (a coleta completa inclui Senado e TCU em cache): estatística, CSV, cada indicador (inclusive presença descontando licenças),
 normalização, soma ponderada, TOPSIS, cobertura mínima, elegibilidade, histórico de deputados, trajetória
 política (CPF mascarado em 2024, 2º turno, homônimos), cruzamento
-de identidades, gravação/leitura, a coleta completa sobre arquivos no **layout real** do TSE 2026 (50
+de identidades, gravação/leitura, o quadro de preparo (idade na posse, anos de mandato, "não consultado" × "nada consta"), os leitores de receitas, emendas, CEIS/CNEP, SIAPE, CNPJ, bens anteriores, cassações e SICONFI, a coleta completa sobre arquivos no **layout real** do TSE 2026 (50
 colunas, `#NULO`, latin-1) e da Câmara, e o servidor web respondendo como o navegador.
 
 > Os leitores seguem os formatos conferidos, mas a coleta completa contra os servidores oficiais ainda

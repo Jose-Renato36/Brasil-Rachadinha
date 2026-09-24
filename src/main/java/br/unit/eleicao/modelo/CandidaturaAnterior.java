@@ -13,6 +13,10 @@ public class CandidaturaAnterior implements Comparable<CandidaturaAnterior> {
     private final String local;
     private final String partido;
     private final String resultado;
+    private String sqOrigem = "";
+    private String codigoUe = "";
+    private Double patrimonio;
+    private String motivoCassacao = "";
 
     public CandidaturaAnterior(int ano, String cargo, String local, String partido, String resultado) {
         this.ano = ano;
@@ -69,6 +73,52 @@ public class CandidaturaAnterior implements Comparable<CandidaturaAnterior> {
     /** Frase para a tela, ex.: "2024 · Vereador(a) em ARACAJU · PXA · Eleito(a)". */
     public String getDescricao() {
         return ano + " · " + getCargoLegivel() + (local.isEmpty() ? "" : " (" + local + ")") + " · " + partido + " · " + resultado;
+    }
+
+    /** Número da candidatura antiga no TSE (liga bens declarados e motivo de cassação daquele ano). */
+    public String getSqOrigem() {
+        return sqOrigem;
+    }
+
+    public void setSqOrigem(String sqOrigem) {
+        this.sqOrigem = sqOrigem == null ? "" : sqOrigem;
+    }
+
+    /** Código da unidade eleitoral no TSE (município, nas eleições municipais; UF nas gerais). */
+    public String getCodigoUe() {
+        return codigoUe;
+    }
+
+    public void setCodigoUe(String codigoUe) {
+        this.codigoUe = codigoUe == null ? "" : codigoUe;
+    }
+
+    /** Total de bens declarados naquela eleição (null = não declarou ou arquivo ausente). */
+    public Double getPatrimonio() {
+        return patrimonio;
+    }
+
+    public void setPatrimonio(Double patrimonio) {
+        this.patrimonio = patrimonio;
+    }
+
+    /** Motivo de cassação/indeferimento registrado pelo TSE para aquela candidatura ("" = nenhum). */
+    public String getMotivoCassacao() {
+        return motivoCassacao;
+    }
+
+    public void setMotivoCassacao(String motivoCassacao) {
+        this.motivoCassacao = motivoCassacao == null ? "" : motivoCassacao;
+    }
+
+    /** Anos em que exerceu o mandato até o ano de referência (0 se não foi eleito). */
+    public int anosExercidos(int anoReferencia) {
+        if (!isEleito()) {
+            return 0;
+        }
+        int inicio = ano + 1;
+        int fim = Math.min(getFimMandato(), anoReferencia);
+        return Math.max(0, fim - inicio + 1);
     }
 
     /** Mais recentes primeiro. */

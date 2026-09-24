@@ -354,3 +354,50 @@ details summary { cursor: pointer; font-weight: 600; color: var(--primaria); }
 .cartao-candidato.aberto .cabeca { grid-template-columns: 80px 1fr; }
 .cartao-candidato.aberto .numero-mini { font-size: 1.5rem; top: 14px; right: 14px; }
 .cartao-candidato.aberto .numero-mini small { color: inherit; opacity: .7; }
+
+/* ---------- preparo para o cargo ---------- */
+.preparo { background: var(--superficie-2); border-radius: var(--raio); padding: 16px 18px; margin-bottom: 18px; }
+.preparo h3 { margin: 0 0 4px; }
+.preparo > .fraco { margin: 0 0 12px; font-size: .9rem; }
+.preparo-grupos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.preparo-grupo h4 { margin: 0 0 6px; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--texto-2); }
+.preparo-grupo ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.preparo-grupo details { background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; padding: 8px 10px; }
+.preparo-grupo summary { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; list-style: none; }
+.preparo-grupo summary::-webkit-details-marker { display: none; }
+.preparo-grupo details p { margin: 8px 0 0 34px; font-size: .88rem; }
+.resumo-aval { color: var(--texto-2); font-size: .9rem; font-weight: 400; }
+.aval { flex: 0 0 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .8rem; }
+.aval-ok { background: var(--ok-fundo); color: var(--ok); }
+.aval-info { background: var(--primaria-clara); color: var(--primaria-escura); font-style: italic; font-family: Georgia, serif; }
+.aval-atencao { background: var(--alerta-fundo); color: var(--alerta); }
+.aval-negativo { background: var(--perigo-fundo); color: var(--perigo); }
+.aval-sem-dados { background: var(--superficie-2); color: var(--texto-3); border: 1px dashed var(--borda); }
+
+/* ---------- financiamento ---------- */
+.numero-grande { font-size: 1.5rem; font-weight: 700; margin: 0 0 8px; }
+.numero-grande small { font-size: .85rem; font-weight: 400; }
+.barra-empilhada { display: flex; height: 16px; border-radius: 999px; overflow: hidden; background: var(--superficie-2); }
+.barra-empilhada span { display: block; height: 100%; }
+.barra-empilhada span + span { border-left: 2px solid var(--superficie); }
+.legenda { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 4px; font-size: .9rem; }
+.legenda .cor, .legenda-linha .cor { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+
+/* ---------- colunas por ano (emendas e gestão fiscal) ---------- */
+.colunas-ano { position: relative; display: flex; align-items: flex-end; gap: 6px; height: 110px; margin: 12px 0 22px;
+  border-bottom: 1px solid var(--eixo); }
+.colunas-ano .coluna { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; min-width: 0; }
+.colunas-ano .coluna span { display: block; width: 100%; max-width: 38px; background: var(--serie-1); border-radius: 4px 4px 0 0; }
+.colunas-ano .coluna small { position: absolute; bottom: -20px; font-size: .72rem; color: var(--texto-2); }
+.colunas-ano.fiscal .coluna.antes span { background: var(--eixo); }
+.colunas-ano.fiscal .coluna.acima span { background: var(--perigo); }
+.colunas-ano .limite { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--perigo); z-index: 1; }
+.legenda-linha { font-size: .82rem; color: var(--texto-2); margin: 0 0 6px; }
+.legenda-linha .cor.antes { background: var(--eixo); }
+.legenda-linha .cor.durante { background: var(--serie-1); margin-left: 8px; }
+.legenda-linha .cor.limite { background: none; border-top: 2px dashed var(--perigo); border-radius: 0; height: 0; margin-left: 8px; }
+.texto-perigo { color: var(--perigo); }
+.duas-colunas { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.duas-colunas h5 { margin: 8px 0 4px; }
+.lista-simples { list-style: none; padding: 0; margin: 6px 0 10px; display: grid; gap: 8px; }
+.detalhe-grade .largura-toda { grid-column: 1 / -1; }

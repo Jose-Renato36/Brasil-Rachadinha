@@ -5,6 +5,15 @@ import java.time.LocalDate;
 /** Descreve de onde veio a base carregada (UF, anos, se é demonstração). */
 public class Metadados {
 
+    public static final String FONTE_CASSACAO = "cassacao";
+    public static final String FONTE_BENS_ANTERIORES = "bens_anteriores";
+    public static final String FONTE_RECEITAS = "receitas";
+    public static final String FONTE_EMENDAS = "emendas";
+    public static final String FONTE_EMPRESAS = "empresas";
+    public static final String FONTE_SANCOES = "sancoes";
+    public static final String FONTE_SIAPE = "siape";
+    public static final String FONTE_SICONFI = "siconfi";
+
     private String uf;
     private int anoEleicao;
     private int anoAnterior;
@@ -13,6 +22,7 @@ public class Metadados {
     private String descricao;
     private String geradoEm;
     private boolean tcuVerificado;
+    private final java.util.Set<String> fontesVerificadas = new java.util.TreeSet<>();
 
     public Metadados(String uf, int anoEleicao, int anoAnterior, LocalDate dataEleicao) {
         this.uf = uf;
@@ -77,6 +87,20 @@ public class Metadados {
 
     public void setTcuVerificado(boolean tcuVerificado) {
         this.tcuVerificado = tcuVerificado;
+    }
+
+    /** Fontes opcionais que foram de fato lidas nesta coleta (ex.: "sancoes", "siape"). */
+    public java.util.Set<String> getFontesVerificadas() {
+        return java.util.Collections.unmodifiableSet(fontesVerificadas);
+    }
+
+    public void marcarVerificada(String fonte) {
+        fontesVerificadas.add(fonte);
+    }
+
+    /** true se a fonte foi consultada; permite dizer "não consta" em vez de "sem dados". */
+    public boolean isVerificada(String fonte) {
+        return fontesVerificadas.contains(fonte) || ("tcu".equals(fonte) && tcuVerificado);
     }
 
     public String getGeradoEm() {

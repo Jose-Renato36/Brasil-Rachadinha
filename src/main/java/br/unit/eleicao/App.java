@@ -26,7 +26,7 @@ import java.util.List;
  * <pre>
  *   (sem argumentos)                       interface web com a demonstração (ou a última UF processada)
  *   web [UF|demo] [porta]                  interface web com a base escolhida
- *   coletar SE [2026] [--sem-download]     coleta e processa a UF pela linha de comando
+ *   coletar SE [2026] [--sem-download] [--empresas]  coleta e processa a UF (--empresas baixa o CNPJ, vários GB)
  *   ranking SE|demo                        imprime o ranking com pesos iguais
  * </pre>
  */
@@ -54,7 +54,7 @@ public final class App {
                     break;
                 default:
                     System.err.println("Comando desconhecido: " + comando);
-                    System.err.println("Use: web [UF|demo] [porta] | coletar UF [ano] [--sem-download] | ranking UF|demo");
+                    System.err.println("Use: web [UF|demo] [porta] | coletar UF [ano] [--sem-download] [--empresas] | ranking UF|demo");
                     System.exit(2);
             }
         } catch (DadosException e) {
@@ -115,14 +115,17 @@ public final class App {
         String uf = argumento(args, 1);
         int ano = 2026;
         boolean baixar = true;
+        boolean empresas = false;
         for (int i = 2; i < args.length; i++) {
             if ("--sem-download".equals(args[i])) {
                 baixar = false;
+            } else if ("--empresas".equals(args[i])) {
+                empresas = true;
             } else {
                 ano = Integer.parseInt(args[i]);
             }
         }
-        new PipelineColeta(RAIZ, System.out::println).executar(uf, ano, baixar);
+        new PipelineColeta(RAIZ, System.out::println).executar(uf, ano, baixar, empresas);
     }
 
     private static void imprimirRanking(String uf) throws DadosException {

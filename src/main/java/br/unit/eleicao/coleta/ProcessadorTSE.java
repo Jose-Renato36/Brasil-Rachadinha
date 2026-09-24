@@ -222,6 +222,17 @@ public class ProcessadorTSE {
 
     /** Soma dos bens declarados por candidatura; mapa vazio se o arquivo não existir. */
     private Map<String, Double> lerBens(int ano) throws ArquivoInvalidoException {
+        return somarBens(pasta, uf, ano, null, log);
+    }
+
+    /**
+     * Soma dos bens declarados por candidatura (SQ_CANDIDATO) numa eleição.
+     *
+     * @param apenas se não for null, só soma os sequenciais deste conjunto (poupa memória no modo nacional)
+     * @return mapa vazio se o arquivo não existir
+     */
+    static Map<String, Double> somarBens(Path pasta, String uf, int ano, java.util.Set<String> apenas,
+                                         java.util.function.Consumer<String> log) throws ArquivoInvalidoException {
         Map<String, Double> soma = new HashMap<>();
         Path arquivo = pasta.resolve(FontesDados.nomeLocal(FontesDados.bens(ano)));
         if (!Files.exists(arquivo)) {
@@ -242,8 +253,11 @@ public class ProcessadorTSE {
                 int iDesc = csv.indiceOpcional("DS_BEM_CANDIDATO");
                 String[] l;
                 while ((l = csv.proximaLinha()) != null) {
-                    Double v = Texto.parseDecimal(LeitorCsv.campo(l, iValor));
                     String sq = LeitorCsv.campo(l, iSq);
+                    if (apenas != null && !apenas.contains(sq)) {
+                        continue;
+                    }
+                    Double v = Texto.parseDecimal(LeitorCsv.campo(l, iValor));
                     String chave = sq + "|" + LeitorCsv.campo(l, iOrdem) + "|" + LeitorCsv.campo(l, iDesc) + "|" + v;
                     if (v != null && vistos.add(chave)) {
                         soma.merge(sq, v, Double::sum);

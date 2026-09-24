@@ -74,6 +74,7 @@ public class GeradorDadosDemo {
         }
         gerarOutrosCargos(base, deputados);
         gerarPresidencia(base);
+        new ComplementosDemo(SEMENTE).preencher(base);
         return base;
     }
 

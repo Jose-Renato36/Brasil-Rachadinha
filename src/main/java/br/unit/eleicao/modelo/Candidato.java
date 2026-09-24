@@ -28,6 +28,12 @@ public class Candidato extends Pessoa {
     private final List<CandidaturaAnterior> trajetoria = new ArrayList<>();
     private final List<ResumoMandato> atuacao = new ArrayList<>();
     private final List<ContaIrregular> contasIrregulares = new ArrayList<>();
+    private Financiamento financiamento;
+    private ResumoEmendas emendas;
+    private final List<VinculoEmpresa> empresas = new ArrayList<>();
+    private final List<Sancao> sancoes = new ArrayList<>();
+    private final List<VinculoServidor> vinculosServidor = new ArrayList<>();
+    private final List<IndicadorFiscal> gestaoFiscal = new ArrayList<>();
     private Integer idDeputado;
     private String criterioVinculo;
 
@@ -239,6 +245,75 @@ public class Candidato extends Pessoa {
             }
         }
         return false;
+    }
+
+    /** Receitas da campanha atual por origem, ou null se a prestação de contas não foi encontrada. */
+    public Financiamento getFinanciamento() {
+        return financiamento;
+    }
+
+    public void setFinanciamento(Financiamento financiamento) {
+        this.financiamento = financiamento;
+    }
+
+    /** Emendas parlamentares indicadas (só para quem foi deputado federal ou senador), ou null. */
+    public ResumoEmendas getEmendas() {
+        return emendas;
+    }
+
+    public void setEmendas(ResumoEmendas emendas) {
+        this.emendas = emendas;
+    }
+
+    public void adicionarEmpresa(VinculoEmpresa e) {
+        empresas.add(e);
+    }
+
+    public List<VinculoEmpresa> getEmpresas() {
+        return Collections.unmodifiableList(empresas);
+    }
+
+    public void adicionarSancao(Sancao s) {
+        sancoes.add(s);
+    }
+
+    public List<Sancao> getSancoes() {
+        return Collections.unmodifiableList(sancoes);
+    }
+
+    public void adicionarVinculoServidor(VinculoServidor v) {
+        vinculosServidor.add(v);
+    }
+
+    public List<VinculoServidor> getVinculosServidor() {
+        return Collections.unmodifiableList(vinculosServidor);
+    }
+
+    public void adicionarIndicadorFiscal(IndicadorFiscal i) {
+        gestaoFiscal.add(i);
+        Collections.sort(gestaoFiscal);
+    }
+
+    /** Gasto com pessoal do ente que a pessoa governou, antes e durante o mandato. */
+    public List<IndicadorFiscal> getGestaoFiscal() {
+        return Collections.unmodifiableList(gestaoFiscal);
+    }
+
+    /**
+     * Patrimônio declarado em cada eleição disputada (anteriores + atual), do ano mais antigo ao mais recente.
+     * Só entram os anos em que houve declaração.
+     */
+    public java.util.SortedMap<Integer, Double> getSeriePatrimonio(int anoAtual) {
+        java.util.SortedMap<Integer, Double> serie = new java.util.TreeMap<>();
+        for (CandidaturaAnterior c : trajetoria) {
+            if (c.getPatrimonio() != null) {
+                serie.put(c.getAno(), c.getPatrimonio());
+            }
+        }
+        if (patrimonio != null) {
+            serie.put(anoAtual, patrimonio);
+        }
+        return serie;
     }
 
     public Integer getIdDeputado() {

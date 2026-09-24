@@ -24,11 +24,24 @@ public final class ArquivosBrutos {
      */
     public static LeitorCsv abrir(Path arquivo, Charset charset, String sufixoEntrada)
             throws ArquivoInvalidoException {
+        return abrir(arquivo, charset, "", sufixoEntrada, ';');
+    }
+
+    /**
+     * Como {@link #abrir(Path, Charset, String)}, exigindo também o começo do nome da entrada (ex.: zips
+     * com "receitas_candidatos_2026_SE.csv" e "receitas_candidatos_doador_originario_2026_SE.csv").
+     */
+    public static LeitorCsv abrir(Path arquivo, Charset charset, String prefixoEntrada, String sufixoEntrada,
+                                  char separador) throws ArquivoInvalidoException {
         if (!Files.exists(arquivo)) {
             throw new ArquivoInvalidoException("Arquivo não encontrado: " + arquivo.toAbsolutePath());
         }
         if (!arquivo.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip")) {
-            return new LeitorCsv(arquivo, charset);
+            try {
+                return new LeitorCsv(Files.newInputStream(arquivo), charset, separador, arquivo.getFileName().toString());
+            } catch (IOException e) {
+                throw new ArquivoInvalidoException("Não foi possível abrir " + arquivo + ": " + e.getMessage(), e);
+            }
         }
         ZipInputStream zip = null;
         try {
@@ -36,9 +49,12 @@ public final class ArquivosBrutos {
             zip = new ZipInputStream(entrada, charset);
             ZipEntry entry;
             String sufixo = sufixoEntrada.toLowerCase(Locale.ROOT);
+            String prefixo = prefixoEntrada.toLowerCase(Locale.ROOT);
             while ((entry = zip.getNextEntry()) != null) {
-                if (entry.getName().toLowerCase(Locale.ROOT).endsWith(sufixo)) {
-                    return new LeitorCsv(zip, charset, ';', arquivo.getFileName() + "!" + entry.getName());
+                String nome = entry.getName().toLowerCase(Locale.ROOT);
+                String base = nome.substring(nome.lastIndexOf('/') + 1);
+                if (nome.endsWith(sufixo) && base.startsWith(prefixo)) {
+                    return new LeitorCsv(zip, charset, separador, arquivo.getFileName() + "!" + entry.getName());
                 }
             }
             zip.close();
@@ -72,8 +88,13 @@ public final class ArquivosBrutos {
     /** Como {@link #abrir}, mas devolve null quando o zip não tem a entrada (útil para entradas opcionais). */
     public static LeitorCsv abrirSeExistir(Path arquivo, Charset charset, String sufixoEntrada)
             throws ArquivoInvalidoException {
+        return abrirSeExistir(arquivo, charset, "", sufixoEntrada, ';');
+    }
+
+    public static LeitorCsv abrirSeExistir(Path arquivo, Charset charset, String prefixoEntrada, String sufixoEntrada,
+                                           char separador) throws ArquivoInvalidoException {
         try {
-            return abrir(arquivo, charset, sufixoEntrada);
+            return abrir(arquivo, charset, prefixoEntrada, sufixoEntrada, separador);
         } catch (ArquivoInvalidoException e) {
             if (e.getMessage() != null && e.getMessage().startsWith("Nenhuma entrada")) {
                 return null;

@@ -102,6 +102,7 @@ public class ProcessadorTrajetoria {
             int iSq = csv.indice("SQ_CANDIDATO");
             int iCargo = csv.indice("DS_CARGO");
             int iUe = csv.indiceOpcional("NM_UE");
+            int iSgUe = csv.indiceOpcional("SG_UE");
             int iNome = csv.indice("NM_CANDIDATO");
             int iNasc = csv.indiceOpcional("DT_NASCIMENTO");
             int iCpf = csv.indiceOpcional("NR_CPF_CANDIDATO");
@@ -127,6 +128,8 @@ public class ProcessadorTrajetoria {
                         localDaEleicao(cargo, Texto.limparTse(LeitorCsv.campo(l, iUe)), ufLinha),
                         Texto.limparTse(LeitorCsv.campo(l, iPartido)),
                         CandidaturaAnterior.resultadoSimples(LeitorCsv.campo(l, iResultado)));
+                cand.setSqOrigem(sq);
+                cand.setCodigoUe(Texto.limparTse(LeitorCsv.campo(l, iSgUe)));
                 Registro r = new Registro(cand, turno == null ? 1 : turno);
                 Registro atual = escolhido.get(sq);
                 if (atual == null || r.turno > atual.turno) {

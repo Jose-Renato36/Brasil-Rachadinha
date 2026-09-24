@@ -64,6 +64,55 @@ public enum Cargo {
         }
     }
 
+    /** Idade mínima exigida pela Constituição (art. 14, § 3º, VI), conferida na data da posse. */
+    public int getIdadeMinima() {
+        switch (this) {
+            case PRESIDENTE:
+            case VICE_PRESIDENTE:
+            case SENADOR:
+            case SUPLENTE_SENADOR:
+                return 35;
+            case GOVERNADOR:
+            case VICE_GOVERNADOR:
+                return 30;
+            case VEREADOR:
+                return 18;
+            case OUTRO:
+                return 0;
+            default:
+                return 21;
+        }
+    }
+
+    /** Cargo do Poder Executivo (administra orçamento e equipe) em vez do Legislativo. */
+    public boolean isExecutivo() {
+        return this == PRESIDENTE || this == VICE_PRESIDENTE || this == GOVERNADOR || this == VICE_GOVERNADOR
+                || this == PREFEITO || this == VICE_PREFEITO;
+    }
+
+    /**
+     * Data da posse de quem vence a eleição do ano informado: 1º de janeiro (municipais), 5 de janeiro
+     * (presidente) e 6 de janeiro (governador) a partir de 2027 (EC 111/2021), 1º de fevereiro (Congresso e
+     * Assembleias).
+     */
+    public java.time.LocalDate dataPosse(int anoEleicao) {
+        int ano = anoEleicao + 1;
+        switch (this) {
+            case PRESIDENTE:
+            case VICE_PRESIDENTE:
+                return java.time.LocalDate.of(ano, 1, ano >= 2027 ? 5 : 1);
+            case GOVERNADOR:
+            case VICE_GOVERNADOR:
+                return java.time.LocalDate.of(ano, 1, ano >= 2027 ? 6 : 1);
+            case PREFEITO:
+            case VICE_PREFEITO:
+            case VEREADOR:
+                return java.time.LocalDate.of(ano, 1, 1);
+            default:
+                return java.time.LocalDate.of(ano, 2, 1);
+        }
+    }
+
     public boolean isMunicipal() {
         return this == PREFEITO || this == VICE_PREFEITO || this == VEREADOR;
     }

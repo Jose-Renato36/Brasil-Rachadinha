@@ -34,10 +34,21 @@ public class LeitorCsv implements AutoCloseable {
 
     public LeitorCsv(InputStream entrada, Charset charset, char separador, String nomeArquivo)
             throws ArquivoInvalidoException {
+        this(entrada, charset, separador, nomeArquivo, true);
+    }
+
+    /**
+     * @param comCabecalho false para arquivos sem linha de títulos (ex.: dados abertos do CNPJ); nesse caso
+     *                     as colunas são acessadas só pela posição
+     */
+    public LeitorCsv(InputStream entrada, Charset charset, char separador, String nomeArquivo, boolean comCabecalho)
+            throws ArquivoInvalidoException {
         this.leitor = new BufferedReader(new InputStreamReader(entrada, charset), 1 << 16);
         this.separador = separador;
         this.nomeArquivo = nomeArquivo;
-        lerCabecalho();
+        if (comCabecalho) {
+            lerCabecalho();
+        }
     }
 
     private static InputStream abrir(Path arquivo) throws ArquivoInvalidoException {

@@ -47,6 +47,37 @@ public final class Texto {
         return t;
     }
 
+    /**
+     * Compara um CPF completo com o CPF publicado por uma fonte, que pode vir mascarado
+     * (ex.: "***.456.789-**" no Portal da Transparência, "***456789**" na Receita).
+     * Exige pelo menos 6 dígitos visíveis, todos iguais aos da mesma posição.
+     */
+    public static boolean cpfCompativel(String cpfCompleto, String publicado) {
+        if (cpfCompleto == null || cpfCompleto.length() != 11 || publicado == null) {
+            return false;
+        }
+        String p = publicado.replace(".", "").replace("-", "").replace(" ", "");
+        if (p.length() != 11) {
+            return false;
+        }
+        int visiveis = 0;
+        for (int i = 0; i < 11; i++) {
+            char c = p.charAt(i);
+            if (Character.isDigit(c)) {
+                if (c != cpfCompleto.charAt(i)) {
+                    return false;
+                }
+                visiveis++;
+            }
+        }
+        return visiveis >= 6;
+    }
+
+    /** Dígitos centrais que as fontes mascaradas deixam visíveis (posições 4 a 9 do CPF). */
+    public static String meioCpf(String cpfCompleto) {
+        return cpfCompleto == null || cpfCompleto.length() != 11 ? "" : cpfCompleto.substring(3, 9);
+    }
+
     public static String somenteDigitos(String s) {
         return s == null ? "" : s.replaceAll("\\D", "");
     }
