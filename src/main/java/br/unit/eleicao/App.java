@@ -26,7 +26,7 @@ import java.util.List;
  * <pre>
  *   (sem argumentos)                       interface web com a demonstração (ou a última UF processada)
  *   web [UF|demo] [porta]                  interface web com a base escolhida
- *   coletar SE [2026] [--sem-download] [--empresas]  coleta e processa a UF (--empresas baixa o CNPJ, vários GB)
+ *   coletar SE [2026] [--sem-download] [--sem-empresas]  coleta tudo da UF (--sem-empresas pula o CNPJ, vários GB)
  *   ranking SE|demo                        imprime o ranking com pesos iguais
  * </pre>
  */
@@ -54,7 +54,7 @@ public final class App {
                     break;
                 default:
                     System.err.println("Comando desconhecido: " + comando);
-                    System.err.println("Use: web [UF|demo] [porta] | coletar UF [ano] [--sem-download] [--empresas] | ranking UF|demo");
+                    System.err.println("Use: web [UF|demo] [porta] | coletar UF [ano] [--sem-download] [--sem-empresas] | ranking UF|demo");
                     System.exit(2);
             }
         } catch (DadosException e) {
@@ -68,17 +68,42 @@ public final class App {
 
     private static void iniciarWeb(String baseInicial, int porta) throws IOException, DadosException {
         ServicoApi api = new ServicoApi(RAIZ);
-        // sem escolha explícita: abre o Brasil inteiro se já foi coletado, senão a demonstração
-        String base = baseInicial;
-        if (base == null) {
-            base = RepositorioArquivos.contemBase(RAIZ.resolve("processados").resolve("BR")) ? "BR" : "demo";
-        }
+        // sem escolha explícita: dados reais sempre que existirem (Brasil inteiro ou o último estado coletado)
+        String base = baseInicial == null ? baseReal(RAIZ.resolve("processados")) : baseInicial;
         api.abrir(base);
         int usada = new ServidorWeb(api).iniciar(porta);
         String endereco = "http://localhost:" + usada + "/";
         System.out.println("Interface disponível em " + endereco);
         System.out.println("Deixe esta janela aberta enquanto usa o sistema. Para encerrar: Ctrl+C (ou o botão Stop do IntelliJ).");
         abrirNavegador(endereco);
+    }
+
+    /**
+     * Base real que o site abre sozinho: o Brasil inteiro, se foi coletado; senão o estado coletado por último;
+     * sem nenhuma coleta, a demonstração (dados fictícios).
+     */
+    static String baseReal(Path processados) {
+        if (RepositorioArquivos.contemBase(processados.resolve("BR"))) {
+            return "BR";
+        }
+        String escolhida = "demo";
+        java.nio.file.attribute.FileTime maisRecente = null;
+        try (java.nio.file.DirectoryStream<Path> pastas = java.nio.file.Files.newDirectoryStream(processados)) {
+            for (Path pasta : pastas) {
+                if (!RepositorioArquivos.contemBase(pasta)) {
+                    continue;
+                }
+                java.nio.file.attribute.FileTime quando = java.nio.file.Files.getLastModifiedTime(
+                        pasta.resolve(RepositorioArquivos.META));
+                if (maisRecente == null || quando.compareTo(maisRecente) > 0) {
+                    maisRecente = quando;
+                    escolhida = pasta.getFileName().toString();
+                }
+            }
+        } catch (IOException e) {
+            return "demo"; // pasta ainda não existe: nenhuma coleta feita
+        }
+        return escolhida;
     }
 
     /** Tenta abrir o navegador padrão; se não der (servidor sem tela), o endereço já foi impresso. */
@@ -115,12 +140,14 @@ public final class App {
         String uf = argumento(args, 1);
         int ano = 2026;
         boolean baixar = true;
-        boolean empresas = false;
+        boolean empresas = true; // coleta completa por padrão
         for (int i = 2; i < args.length; i++) {
             if ("--sem-download".equals(args[i])) {
                 baixar = false;
+            } else if ("--sem-empresas".equals(args[i])) {
+                empresas = false;
             } else if ("--empresas".equals(args[i])) {
-                empresas = true;
+                empresas = true; // aceito por compatibilidade (já é o padrão)
             } else {
                 ano = Integer.parseInt(args[i]);
             }

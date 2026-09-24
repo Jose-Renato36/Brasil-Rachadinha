@@ -74,7 +74,7 @@ public class PipelineColeta {
     }
 
     public BaseDados executar(String uf, int anoEleicao, boolean baixar) throws DadosException {
-        return executar(uf, anoEleicao, baixar, false);
+        return executar(uf, anoEleicao, baixar, true);
     }
 
     /**
