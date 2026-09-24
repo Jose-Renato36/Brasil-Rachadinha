@@ -1,0 +1,9 @@
+target/
+dados/brutos/
+dados/processados/
+dados/demo/
+*.class
+.idea/
+*.iml
+nbproject/private/
+.vscode/

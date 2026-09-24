@@ -1,0 +1,131 @@
+<html>
+<body style="font-family: sans-serif; margin: 14px;">
+<h1>Metodologia e limites</h1>
+
+<p><b>Este sistema não diz quem é o melhor candidato.</b> Ele reúne dados públicos verificáveis, calcula
+indicadores objetivos e deixa <i>você</i> decidir o que pesa mais. O foco é a transparência do método,
+não um veredito.</p>
+
+<h2>Fontes</h2>
+<ul>
+  <li><b>TSE</b> (Portal de Dados Abertos): candidaturas (<code>consulta_cand</code>) e bens declarados
+      (<code>bem_candidato</code>) da eleição atual e da anterior.</li>
+  <li><b>Câmara dos Deputados</b> (Dados Abertos): deputados, votações e votos nominais do Plenário,
+      proposições e autores, e a Cota para Exercício da Atividade Parlamentar (CEAP).</li>
+</ul>
+<p>Os arquivos são baixados uma vez e processados para arquivos locais (cache), filtrados pela UF escolhida.</p>
+
+<h2>Indicadores</h2>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>Indicador</th><th>Cálculo</th><th>Sentido padrão</th></tr>
+<tr><td>Presença nas votações</td><td>votações nominais do Plenário com voto registrado ÷ votações ocorridas
+  enquanto o deputado estava <b>em exercício</b> (licenças e suplências não contam como falta, pelo histórico da Câmara)</td><td>maior é melhor</td></tr>
+<tr><td>Economia da verba de gabinete</td><td>z-score do gasto médio mensal (total ÷ meses com despesa) em relação aos
+  deputados da mesma UF. z = (x − média) ÷ desvio-padrão</td><td>menor é melhor</td></tr>
+<tr><td>Projetos apresentados</td><td>número de proposições (PL, PLP, PEC, PDL, PRC) em que é autor proponente;
+  as aprovadas aparecem no perfil</td><td>maior é melhor</td></tr>
+<tr><td>Patrimônio estável</td><td>(bens atuais − bens da eleição anterior) ÷ bens da eleição anterior</td>
+  <td>menor é melhor</td></tr>
+<tr><td>Vota como eu votaria</td><td>% dos votos Sim/Não do deputado iguais à resposta que <i>você</i> deu em “Minhas opiniões”</td>
+  <td>maior é melhor</td></tr>
+<tr><td>Elegibilidade</td><td>situação da candidatura no TSE. <b>É filtro, não nota.</b></td><td>—</td></tr>
+</table>
+<p>Qualquer sentido pode ser invertido em “O que importa pra mim” › Opções avançadas (por exemplo, se para você gastar a cota
+é sinal de atuação e não de desperdício).</p>
+<p><b>"Aprovada"</b> = proposição transformada em norma jurídica ou aprovada na Câmara e enviada ao Senado,
+à sanção ou à promulgação, conforme a última situação informada pela Câmara.</p>
+
+<h2>Trajetória e mandatos anteriores</h2>
+<p>Para cada candidatura, buscamos a mesma pessoa nas eleições de 2018, 2020, 2022 e 2024 (TSE), pelo CPF
+ou, quando o TSE não o publica, pelo nome completo + data de nascimento. Assim mostramos quem é estreante,
+quem já concorreu, quem já foi eleito(a) e quem tem mandato hoje.</p>
+<p>Quando o mandato tem dados abertos, mostramos o que a pessoa fez: <b>Câmara dos Deputados</b> (mandato atual e
+2019–2023: presença, projetos, aprovados e verba de gabinete) e <b>Senado</b> (votos e matérias de autoria).
+Para quem já foi deputado(a) federal ou senador(a), mostramos as <b>emendas individuais</b> ao Orçamento da União
+(Portal da Transparência): quanto foi pago, para onde e em que áreas. Para quem já foi <b>prefeito(a), governador(a) ou presidente</b>,
+mostramos como estava o lugar antes e durante o mandato: PIB e PIB por pessoa, empregos formais, desemprego (IBGE), IDEB
+(INEP), gasto com pessoal, investimento e se sobrou ou faltou dinheiro (Tesouro/SICONFI); para presidente, também
+crescimento real, inflação e dívida pública (Banco Central) e medidas provisórias e projetos do governo aprovados (Câmara).
+Cada número aparece <b>ao lado do estado ou do Brasil no mesmo período</b>, para mostrar se o lugar foi melhor ou pior que a
+média. Isso descreve o que aconteceu, não prova que foi por causa do governante. Para assembleias e câmaras
+municipais <b>não existe base nacional padronizada</b>: indicamos onde consultar.</p>
+<p>Também consultamos a lista do <b>TCU</b> de contas julgadas irregulares (a mesma que o TCU envia ao TSE para a
+Lei da Ficha Limpa), ligando só pelo CPF. Estar na lista não torna ninguém inelegível automaticamente.</p>
+<h2>Preparo para o cargo</h2>
+<p>Cada ficha abre com um quadro de fatos verificáveis, sem nota:</p>
+<ul>
+  <li><b>Requisitos da lei</b>: idade mínima da Constituição contada na data da posse e situação do registro no TSE.</li>
+  <li><b>Formação e experiência</b>: escolaridade declarada (a lei só exige saber ler e escrever), anos de mandato desde
+    2018 no Executivo e no Legislativo e se já exerceu o mesmo cargo ou uma função parecida.</li>
+  <li><b>Alertas</b>: contas irregulares no TCU, cassações registradas pelo TSE e sanções nos cadastros da CGU (CEIS/CNEP).
+    Quando uma fonte não foi consultada, a ficha diz "não consultado", nunca "nada consta".</li>
+</ul>
+<p>Também mostramos o <b>patrimônio declarado em cada eleição</b> (sem correção pela inflação), <b>quem paga a campanha</b>
+(fundo eleitoral, partido, doações, recursos próprios), <b>empresas</b> de que a pessoa é sócia (Receita Federal) e se é
+<b>servidor(a) federal</b> (SIAPE). Nessas fontes o CPF vem mascarado: só ligamos quando o nome completo e os 6 dígitos
+visíveis do CPF batem com os informados ao TSE. Filiação sindical não é tratada: é dado sensível pela LGPD.</p>
+<p>Trajetória, atuação, preparo e registros <b>não entram na nota</b>: são contexto para você decidir.</p>
+
+<h2>Ranking</h2>
+<p>O ranking compara só candidaturas ao <b>mesmo cargo</b>. Os critérios de presença, verba e projetos vêm da
+Câmara, então para governador, senador e deputado estadual quase sempre só quem é deputado(a) federal hoje
+tem esses dados.</p>
+<ol>
+  <li><b>Normalização min-max:</b> cada indicador vira uma nota de 0 (pior) a 1 (melhor) entre os candidatos que
+      têm dados: nota = (x − mín) ÷ (máx − mín), invertida quando "menor é melhor".</li>
+  <li><b>Soma ponderada:</b> pontuação = Σ(peso × nota) ÷ Σ(pesos), só com os indicadores em que o candidato
+      tem dados. A coluna <i>cobertura</i> mostra quantos entraram.</li>
+  <li><b>TOPSIS</b> (opcional): distância relativa à solução ideal e à anti-ideal. Só classifica quem tem
+      dados em todos os indicadores com peso.</li>
+</ol>
+<p>A pontuação é <b>relativa</b> aos candidatos da lista: 100 não significa "perfeito", só "o melhor desta
+lista, com estes pesos".</p>
+
+<h2>"Sem dados" não é zero</h2>
+<p>Quando um dado não existe, o indicador aparece como <i>sem dados</i> e fica fora da conta, em vez de virar
+zero. Zero significaria desempenho ruim, e ausência de informação não é desempenho.</p>
+
+<h2>Limites conhecidos</h2>
+<ul>
+  <li><b>Viés contra estreantes:</b> quem nunca teve mandato não tem presença, verba, projetos nem votos.
+      A média ponderada ignora esses critérios para essas pessoas, então um estreante poderia receber nota só
+      pela variação de patrimônio e ficar à frente de quem é avaliado em quatro critérios. Por isso, por padrão,
+      só recebe nota quem tem dados em pelo menos <b>2 critérios</b>; quem não tem aparece no fim da lista, sem nota.
+      Você pode mudar isso em Opções avançadas (com 1, todos entram). Nenhuma das duas escolhas é neutra.</li>
+  <li><b>Dados autodeclarados:</b> bens, escolaridade, ocupação, gênero e cor/raça são declarados pelo próprio
+      candidato ao TSE e não são verificados aqui. Bens estão a valor histórico, sem correção pela inflação.</li>
+  <li><b>Quantidade não é qualidade:</b> muitas proposições não significam boas proposições, e presença não
+      significa bom voto.</li>
+  <li><b>Presença:</b> conta só votações nominais do Plenário; faltas justificadas não são distinguidas. Se o
+      histórico de licenças não puder ser baixado, o período é estimado pelo primeiro e último voto (o perfil avisa).</li>
+  <li><b>Votações “principais”:</b> em “Minhas opiniões” sugerimos primeiro as votações do texto do projeto
+      (e não de requerimentos e destaques), escolhidas pela descrição oficial. É só uma sugestão: todas podem ser buscadas.</li>
+  <li><b>Cruzamento TSE × Câmara:</b> feito por CPF quando disponível, depois por nome civil + data de
+      nascimento. Vínculos só por nome aparecem com ⚠ e vão para <code>vinculos_para_conferir.csv</code>;
+      correções manuais podem ser feitas em <code>dados/vinculos_manuais.csv</code>.</li>
+  <li><b>Correlação não é causalidade</b>, e com poucos candidatos por UF o coeficiente é instável.</li>
+</ul>
+
+<h2>Palavras difíceis, em linguagem simples</h2>
+<dl class="glossario">
+  <dt>Fundo eleitoral e fundo partidário</dt><dd>Dinheiro público (dos impostos) repassado aos partidos, que distribuem entre os candidatos.</dd>
+  <dt>Emenda parlamentar</dt><dd>Parte do Orçamento federal que deputados e senadores indicam para cidades, obras e projetos.
+    A “emenda Pix” (transferência especial) cai direto no caixa da prefeitura ou do estado, e é mais difícil saber como foi usada.</dd>
+  <dt>PIB e PIB por pessoa</dt><dd>Tudo o que a economia de um lugar produziu no ano; dividido pelo número de moradores, dá o PIB por pessoa.</dd>
+  <dt>IDEB</dt><dd>Nota de 0 a 10 das escolas públicas, que junta aprovação dos alunos e resultado em provas de português e matemática.</dd>
+  <dt>Lei de Responsabilidade Fiscal (LRF)</dt><dd>Lei que limita, entre outras coisas, quanto prefeituras e estados podem gastar com salários.</dd>
+  <dt>Pontos</dt><dd>Diferença entre duas porcentagens. Se o desemprego foi de 10% para 8%, caiu 2 pontos.</dd>
+  <dt>TCU</dt><dd>Tribunal de Contas da União, que julga o uso de dinheiro federal. “Contas irregulares” significa que ele reprovou as contas de um gestor.</dd>
+  <dt>CEIS, CNEP e CEAF</dt><dd>Listas da Controladoria-Geral da União com empresas e pessoas punidas: proibidas de contratar com o governo,
+    punidas por corrupção ou expulsas do serviço público federal.</dd>
+  <dt>Pessoa Exposta Politicamente</dt><dd>Quem ocupa ou ocupou nos últimos 5 anos um cargo público de destaque, como ministro ou secretário de estado.</dd>
+  <dt>Medida provisória</dt><dd>Norma que o presidente publica com força de lei na hora; o Congresso precisa aprovar em até 120 dias ou ela perde a validade.</dd>
+  <dt>Plano de governo</dt><dd>Documento com as propostas que candidatos a prefeito, governador e presidente são obrigados a entregar à Justiça Eleitoral.</dd>
+</dl>
+
+<h2>Variáveis sensíveis</h2>
+<p>Gênero e cor/raça aparecem somente na <i>Análise de perfil</i>, para descrever o grupo de candidatos.
+Elas <b>nunca</b> entram na pontuação. O CPF é usado só durante o cruzamento e não é gravado nos arquivos
+processados.</p>
+</body>
+</html>
