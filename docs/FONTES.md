@@ -84,6 +84,17 @@ gerais e municipais), no mesmo layout de 50 colunas.
 - Limite: só o mesmo estado; quem concorreu em outra UF não aparece.
 - É informação de contexto (quem tem mandato hoje, quem já foi eleito), **nunca entra na nota**.
 
+## Versão nacional
+
+Com `coletar BR`, o sistema lê de cada zip do TSE o arquivo do país inteiro (`_BRASIL.csv`) e o de
+abrangência nacional (`_BR.csv`, presidência), sem contar duas vezes o que aparece nos dois (teste
+`ModoNacionalTest`). Câmara, Senado e TCU são lidos sem filtro de UF. Cuidados:
+
+- o z-score da verba de gabinete continua **por estado** (cada UF tem um teto de cota diferente);
+- ligações só por nome (candidato × deputado) exigem **a mesma UF**, porque homônimos entre estados são comuns;
+- a trajetória passa a achar candidaturas em **qualquer estado** (quem mudou de domicílio eleitoral);
+- rankings e comparações são sempre **por cargo e estado**: você vota em quem está na urna do seu estado.
+
 ## Todos os cargos da eleição
 
 `consulta_cand` traz, por UF, **todos os cargos** (governador e vice, senador e suplentes, deputados federais
@@ -148,3 +159,24 @@ Tribunais de Contas e portais de transparência como próximo passo.
 | Assembleias legislativas e câmaras municipais | atuação de deputados estaduais e vereadores | **sem padrão nacional**: cada casa publica (ou não) de um jeito; algumas têm API própria |
 | Portal da Transparência (CGU) – emendas parlamentares | para onde o deputado mandou emendas | exige cadastro de chave de acesso |
 | Processos judiciais | — | não há base aberta e estruturada confiável; risco de erro e de dano à reputação: fora do escopo |
+
+
+## Proposta: analisar o período dos mandatos executivos
+
+É possível, com ressalvas. A ideia: para quem já foi prefeito(a) ou governador(a), olhar indicadores públicos
+do município/estado **no período do mandato** e comparar com o que aconteceu, no mesmo período, em lugares
+parecidos (mesmo estado, porte semelhante). Isso descreve *o que aconteceu durante a gestão*, não prova que
+foi *por causa* dela.
+
+| Peça | Fonte | Situação |
+|---|---|---|
+| Ligar o município do TSE ao código IBGE | tabela pública TSE × IBGE ([betafcc/Municipios-Brasileiros-TSE](https://github.com/betafcc/Municipios-Brasileiros-TSE), 5.570 municípios; conferida) | pronta para usar |
+| Contas públicas por ano (despesa com pessoal, investimento, saúde e educação mínimas, endividamento) | SICONFI / Tesouro Nacional (API `apidatalake.tesouro.gov.br/ords/siconfi/tt/...`, por `id_ente` = código IBGE e `an_exercicio`) | API aberta; exige pesquisar os campos de cada anexo antes de usar |
+| Educação | IDEB por município e rede (INEP, a cada 2 anos) | planilhas abertas |
+| Saúde | mortalidade infantil, cobertura vacinal (DATASUS) | aberto, mas trabalhoso |
+
+Método sugerido: variação do indicador entre o início e o fim do mandato, comparada com a mediana dos
+municípios do mesmo estado e faixa de população no mesmo período; sempre mostrando os números brutos e a
+fonte, sem virar nota. Limites: vereadores e deputados estaduais não se encaixam (não são gestores);
+mandatos de 2021–2024 ainda podem ter dados fiscais incompletos; e prefeito não controla sozinho indicadores
+como IDEB ou mortalidade.

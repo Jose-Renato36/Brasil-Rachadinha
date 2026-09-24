@@ -42,7 +42,8 @@ public class MandatoSenado {
 
     public void processar(List<Candidato> candidatos) {
         try {
-            Document lista = Xml.ler(obter(API + "lista/atual?uf=" + uf, "lista-" + uf + ".xml"));
+            String filtro = ArquivosBrutos.isNacional(uf) ? "" : "?uf=" + uf;
+            Document lista = Xml.ler(obter(API + "lista/atual" + filtro, "lista-" + uf + ".xml"));
             Map<String, List<Candidato>> porNome = new HashMap<>();
             for (Candidato c : candidatos) {
                 porNome.computeIfAbsent(Texto.normalizar(c.getNome()), k -> new ArrayList<>()).add(c);
@@ -61,7 +62,8 @@ public class MandatoSenado {
                 c.adicionarAtuacao(resumir(codigo, Xml.texto(p, "UrlPaginaParlamentar")));
                 n++;
             }
-            log.accept("  Senado: " + n + " candidatos são senadores(as) em exercício por " + uf);
+            log.accept("  Senado: " + n + " candidatos são senadores(as) em exercício"
+                    + (ArquivosBrutos.isNacional(uf) ? "" : " por " + uf));
         } catch (DadosException e) {
             log.accept("  aviso: dados do Senado indisponíveis (" + e.getMessage() + ")");
         }

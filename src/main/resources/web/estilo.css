@@ -331,3 +331,26 @@ details summary { cursor: pointer; font-weight: 600; color: var(--primaria); }
 @media (prefers-reduced-motion: reduce) { .bloco-cargo, .cartao-candidato { transition: none; } .bloco-cargo:hover { transform: none; } }
 
 .selo { white-space: normal; max-width: 100%; line-height: 1.3; }
+
+/* ---------- versão nacional ---------- */
+.uf-caixa { display: flex; align-items: center; gap: 8px; }
+.uf-caixa label { font-size: .8rem; color: var(--texto-2); font-weight: 600; }
+.uf-caixa select { min-height: 38px; padding: 6px 10px; width: auto; max-width: 220px; }
+.onde-vota { max-width: 560px; margin: 26px auto 0; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.onde-vota label { font-size: 1rem; }
+.caixa-alerta select { width: auto; min-height: 36px; padding: 4px 10px; margin-left: 6px; }
+.vaga { border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); padding: 10px; min-height: 64px; position: relative; }
+.vaga.cheia { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; }
+.vaga.busca { border-style: dashed; display: flex; align-items: center; }
+
+/* cartão: número no canto, selo em linha própria */
+.cartao-candidato { position: relative; }
+.cartao-candidato .cabeca { grid-template-columns: 56px 1fr; row-gap: 10px; }
+.cartao-candidato .avatar { width: 56px; height: 56px; }
+.cartao-candidato .identidade { padding-right: 64px; }
+.cartao-candidato .selo-linha { grid-column: 1 / -1; }
+.cartao-candidato .numero-mini { position: absolute; top: 12px; right: 12px; font-size: 1rem; padding: 3px 8px; }
+.cartao-candidato .numero-mini small { font-size: .65rem; font-weight: 600; color: var(--texto-2); }
+.cartao-candidato.aberto .cabeca { grid-template-columns: 80px 1fr; }
+.cartao-candidato.aberto .numero-mini { font-size: 1.5rem; top: 14px; right: 14px; }
+.cartao-candidato.aberto .numero-mini small { color: inherit; opacity: .7; }

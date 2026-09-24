@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="2 - Coletar dados de SE" type="Application" factoryName="Application">
+  <configuration default="false" name="2 - Coletar dados do Brasil" type="Application" factoryName="Application">
     <option name="MAIN_CLASS_NAME" value="br.unit.eleicao.App" />
     <module name="decisao-eleitoral" />
-    <option name="PROGRAM_PARAMETERS" value="coletar SE 2026" />
+    <option name="PROGRAM_PARAMETERS" value="coletar BR 2026" />
     <option name="VM_PARAMETERS" value="-Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
     <method v="2">

@@ -68,7 +68,12 @@ public final class App {
 
     private static void iniciarWeb(String baseInicial, int porta) throws IOException, DadosException {
         ServicoApi api = new ServicoApi(RAIZ);
-        api.abrir(baseInicial == null ? "demo" : baseInicial);
+        // sem escolha explícita: abre o Brasil inteiro se já foi coletado, senão a demonstração
+        String base = baseInicial;
+        if (base == null) {
+            base = RepositorioArquivos.contemBase(RAIZ.resolve("processados").resolve("BR")) ? "BR" : "demo";
+        }
+        api.abrir(base);
         int usada = new ServidorWeb(api).iniciar(porta);
         String endereco = "http://localhost:" + usada + "/";
         System.out.println("Interface disponível em " + endereco);

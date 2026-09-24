@@ -83,7 +83,21 @@ public class ProcessadorTrajetoria {
         // SQ_CANDIDATO do ano -> (candidato atual, melhor registro): o 2º turno substitui o 1º
         Map<String, Candidato> dono = new HashMap<>();
         Map<String, Registro> escolhido = new HashMap<>();
-        try (LeitorCsv csv = ArquivosBrutos.abrir(arquivo, ProcessadorTSE.LATIN1, "_" + uf + ".csv")) {
+        for (String sufixo : ArquivosBrutos.sufixos(uf)) {
+            LeitorCsv aberto = ArquivosBrutos.abrirSeExistir(arquivo, ProcessadorTSE.LATIN1, sufixo);
+            if (aberto != null) {
+                lerEntrada(aberto, ano, porChave, dono, escolhido);
+            }
+        }
+        for (Map.Entry<String, Registro> e : escolhido.entrySet()) {
+            dono.get(e.getKey()).adicionarCandidaturaAnterior(e.getValue().candidatura);
+        }
+        return escolhido.size();
+    }
+
+    private void lerEntrada(LeitorCsv aberto, int ano, Map<String, List<Candidato>> porChave, Map<String, Candidato> dono,
+                            Map<String, Registro> escolhido) throws ArquivoInvalidoException {
+        try (LeitorCsv csv = aberto) {
             int iUf = csv.indice("SG_UF");
             int iSq = csv.indice("SQ_CANDIDATO");
             int iCargo = csv.indice("DS_CARGO");
@@ -96,7 +110,8 @@ public class ProcessadorTrajetoria {
             int iResultado = csv.indiceOpcional("DS_SIT_TOT_TURNO");
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
-                if (!uf.equalsIgnoreCase(LeitorCsv.campo(l, iUf))) {
+                String ufLinha = LeitorCsv.campo(l, iUf);
+                if (!ArquivosBrutos.aceitaUf(uf, ufLinha)) {
                     continue;
                 }
                 String cpf = Texto.somenteDigitos(Texto.limparTse(LeitorCsv.campo(l, iCpf)));
@@ -109,7 +124,7 @@ public class ProcessadorTrajetoria {
                 Integer turno = Texto.parseInteiro(LeitorCsv.campo(l, iTurno));
                 String cargo = Texto.limparTse(LeitorCsv.campo(l, iCargo));
                 CandidaturaAnterior cand = new CandidaturaAnterior(ano, cargo,
-                        localDaEleicao(cargo, Texto.limparTse(LeitorCsv.campo(l, iUe))),
+                        localDaEleicao(cargo, Texto.limparTse(LeitorCsv.campo(l, iUe)), ufLinha),
                         Texto.limparTse(LeitorCsv.campo(l, iPartido)),
                         CandidaturaAnterior.resultadoSimples(LeitorCsv.campo(l, iResultado)));
                 Registro r = new Registro(cand, turno == null ? 1 : turno);
@@ -120,17 +135,16 @@ public class ProcessadorTrajetoria {
                 }
             }
         }
-        for (Map.Entry<String, Registro> e : escolhido.entrySet()) {
-            dono.get(e.getKey()).adicionarCandidaturaAnterior(e.getValue().candidatura);
-        }
-        return escolhido.size();
     }
 
     /** Em eleição municipal o local é o município; em eleição geral, a UF (já implícita). */
-    private static String localDaEleicao(String cargo, String unidadeEleitoral) {
-        String c = Texto.normalizar(cargo);
-        boolean municipal = c.equals("PREFEITO") || c.equals("VICE PREFEITO") || c.equals("VEREADOR");
-        return municipal ? unidadeEleitoral : "";
+    private static String localDaEleicao(String cargo, String unidadeEleitoral, String uf) {
+        br.unit.eleicao.modelo.Cargo tipo = br.unit.eleicao.modelo.Cargo.de(cargo);
+        if (tipo.isMunicipal()) {
+            return unidadeEleitoral + "/" + uf;
+        }
+        return tipo == br.unit.eleicao.modelo.Cargo.PRESIDENTE || tipo == br.unit.eleicao.modelo.Cargo.VICE_PRESIDENTE
+                ? "" : uf;
     }
 
     /** CPF quando os dois lados o têm; senão nome + nascimento. Só aceita correspondência única. */

@@ -112,7 +112,19 @@ public class ProcessadorTSE {
 
     private List<Registro> lerCandidatos(Path arquivo, boolean somenteCargo) throws ArquivoInvalidoException {
         Map<String, Registro> porSq = new LinkedHashMap<>();
-        try (LeitorCsv csv = ArquivosBrutos.abrir(arquivo, LATIN1, "_" + uf + ".csv")) {
+        for (String sufixo : ArquivosBrutos.sufixos(uf)) {
+            lerCandidatos(arquivo, sufixo, somenteCargo, porSq);
+        }
+        return new ArrayList<>(porSq.values());
+    }
+
+    private void lerCandidatos(Path arquivo, String sufixo, boolean somenteCargo, Map<String, Registro> porSq)
+            throws ArquivoInvalidoException {
+        LeitorCsv aberto = ArquivosBrutos.abrirSeExistir(arquivo, LATIN1, sufixo);
+        if (aberto == null) {
+            return;
+        }
+        try (LeitorCsv csv = aberto) {
             int iUf = csv.indice("SG_UF");
             int iCargo = csv.indice("DS_CARGO");
             int iSq = csv.indice("SQ_CANDIDATO");
@@ -130,15 +142,12 @@ public class ProcessadorTSE {
             int iCpf = csv.indiceOpcional("NR_CPF_CANDIDATO");
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
-                if (!uf.equalsIgnoreCase(LeitorCsv.campo(l, iUf))) {
+                String ufLinha = LeitorCsv.campo(l, iUf);
+                if (!ArquivosBrutos.aceitaUf(uf, ufLinha)) {
                     continue;
                 }
                 String cargo = Texto.limparTse(LeitorCsv.campo(l, iCargo));
-                Cargo tipo = Cargo.de(cargo);
-                // eleição atual: todos os cargos disputados na UF (presidente não aparece nos arquivos por UF)
-                if (somenteCargo && (tipo == Cargo.PRESIDENTE || tipo == Cargo.VICE_PRESIDENTE)) {
-                    continue;
-                }
+                // todos os cargos: no modo nacional isso inclui a presidência (arquivo _BR.csv)
                 String sq = LeitorCsv.campo(l, iSq);
                 if (porSq.containsKey(sq)) {
                     continue; // mesma candidatura repetida (ex.: segundo turno)
@@ -148,7 +157,7 @@ public class ProcessadorTSE {
                         Texto.limparTse(LeitorCsv.campo(l, iGenero)));
                 c.setNumero(Texto.limparTse(LeitorCsv.campo(l, iNum)));
                 c.setPartido(Texto.limparTse(LeitorCsv.campo(l, iPartido)));
-                c.setUf(uf);
+                c.setUf(ufLinha.toUpperCase());
                 c.setCargo(cargo);
                 c.setGrauInstrucao(GrauInstrucao.deTexto(LeitorCsv.campo(l, iGrau)));
                 c.setCorRaca(Texto.limparTse(LeitorCsv.campo(l, iCor)));
@@ -158,7 +167,6 @@ public class ProcessadorTSE {
                 porSq.put(sq, new Registro(c, Texto.somenteDigitos(Texto.limparTse(LeitorCsv.campo(l, iCpf)))));
             }
         }
-        return new ArrayList<>(porSq.values());
     }
 
     /**
@@ -176,7 +184,19 @@ public class ProcessadorTSE {
             porSq.put(r.candidato.getSq(), r.candidato);
         }
         int lidos = 0;
-        try (LeitorCsv csv = ArquivosBrutos.abrir(arquivo, LATIN1, "_" + uf + ".csv")) {
+        for (String sufixo : ArquivosBrutos.sufixos(uf)) {
+            LeitorCsv aberto = ArquivosBrutos.abrirSeExistir(arquivo, LATIN1, sufixo);
+            if (aberto == null) {
+                continue;
+            }
+            lidos += lerComplementar(aberto, porSq);
+        }
+        log.accept("  complementar: " + lidos + " candidaturas com situação detalhada");
+    }
+
+    private int lerComplementar(LeitorCsv aberto, Map<String, Candidato> porSq) throws ArquivoInvalidoException {
+        int lidos = 0;
+        try (LeitorCsv csv = aberto) {
             int iSq = csv.indice("SQ_CANDIDATO");
             int iDetalhe = csv.indiceOpcional("DS_DETALHE_SITUACAO_CAND");
             int iReeleicao = csv.indiceOpcional("ST_REELEICAO");
@@ -197,7 +217,7 @@ public class ProcessadorTSE {
                 lidos++;
             }
         }
-        log.accept("  complementar: " + lidos + " candidaturas com situação detalhada");
+        return lidos;
     }
 
     /** Soma dos bens declarados por candidatura; mapa vazio se o arquivo não existir. */
@@ -208,14 +228,26 @@ public class ProcessadorTSE {
             log.accept("  aviso: " + arquivo.getFileName() + " ausente - sem declaração de bens de " + ano);
             return soma;
         }
-        try (LeitorCsv csv = ArquivosBrutos.abrir(arquivo, LATIN1, "_" + uf + ".csv")) {
-            int iSq = csv.indice("SQ_CANDIDATO");
-            int iValor = csv.indice("VR_BEM_CANDIDATO");
-            String[] l;
-            while ((l = csv.proximaLinha()) != null) {
-                Double v = Texto.parseDecimal(LeitorCsv.campo(l, iValor));
-                if (v != null) {
-                    soma.merge(LeitorCsv.campo(l, iSq), v, Double::sum);
+        // no modo nacional um bem pode aparecer em dois arquivos (_BRASIL e _BR): conta cada um uma vez
+        java.util.Set<String> vistos = new java.util.HashSet<>();
+        for (String sufixo : ArquivosBrutos.sufixos(uf)) {
+            LeitorCsv aberto = ArquivosBrutos.abrirSeExistir(arquivo, LATIN1, sufixo);
+            if (aberto == null) {
+                continue;
+            }
+            try (LeitorCsv csv = aberto) {
+                int iSq = csv.indice("SQ_CANDIDATO");
+                int iValor = csv.indice("VR_BEM_CANDIDATO");
+                int iOrdem = csv.indiceOpcional("NR_ORDEM_BEM_CANDIDATO");
+                int iDesc = csv.indiceOpcional("DS_BEM_CANDIDATO");
+                String[] l;
+                while ((l = csv.proximaLinha()) != null) {
+                    Double v = Texto.parseDecimal(LeitorCsv.campo(l, iValor));
+                    String sq = LeitorCsv.campo(l, iSq);
+                    String chave = sq + "|" + LeitorCsv.campo(l, iOrdem) + "|" + LeitorCsv.campo(l, iDesc) + "|" + v;
+                    if (v != null && vistos.add(chave)) {
+                        soma.merge(sq, v, Double::sum);
+                    }
                 }
             }
         }

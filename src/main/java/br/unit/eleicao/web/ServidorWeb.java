@@ -83,15 +83,17 @@ public class ServidorWeb {
             case "ranking":
                 return api.ranking(p);
             case "candidatos":
-                return api.candidatos(p.get("cargo"));
+                return api.candidatos(p);
+            case "busca":
+                return api.busca(p.get("q"), p.get("uf"));
             case "candidato":
                 return api.candidato(obrigatorio(p, "sq"));
             case "distribuicao":
-                return api.distribuicao(p.get("tipo"), p.get("cargo"));
+                return api.distribuicao(p.get("tipo"), p.get("cargo"), p.get("uf"));
             case "variaveis":
                 return api.variaveis();
             case "correlacao":
-                return api.correlacao(obrigatorio(p, "x"), obrigatorio(p, "y"), p.get("cargo"));
+                return api.correlacao(obrigatorio(p, "x"), obrigatorio(p, "y"), p.get("cargo"), p.get("uf"));
             case "votacoes":
                 Integer limite = Texto.parseInteiro(p.get("limite"));
                 return api.votacoes(p.get("busca"), "1".equals(p.get("principais")), limite == null ? 40 : limite);

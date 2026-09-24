@@ -41,23 +41,28 @@ public class GastoCota extends Indicador {
         return meses.isEmpty() ? Double.NaN : total / meses.size();
     }
 
-    /** O z-score depende de todos os pares, por isso este indicador sobrescreve o cálculo em grupo. */
+    /**
+     * O z-score depende de todos os pares da mesma UF (a cota tem teto diferente em cada estado),
+     * por isso este indicador sobrescreve o cálculo em grupo.
+     */
     @Override
     public Map<String, ResultadoIndicador> calcularTodos(List<Candidato> candidatos, BaseDados base) {
         Map<Integer, Double> mediasPorDeputado = new HashMap<>();
+        Map<String, List<Double>> porUf = new HashMap<>();
         for (Deputado d : base.getDeputados()) {
             List<Despesa> despesas = base.getDespesasDe(d.getId());
             if (!despesas.isEmpty()) {
-                mediasPorDeputado.put(d.getId(), mediaMensal(despesas));
+                double m = mediaMensal(despesas);
+                mediasPorDeputado.put(d.getId(), m);
+                porUf.computeIfAbsent(String.valueOf(d.getUf()), k -> new ArrayList<>()).add(m);
             }
         }
-        List<Double> lista = new ArrayList<>(mediasPorDeputado.values());
-        double[] valores = new double[lista.size()];
-        for (int i = 0; i < valores.length; i++) {
-            valores[i] = lista.get(i);
+        Map<String, double[]> estatisticas = new HashMap<>(); // uf -> {media, desvio, n}
+        for (Map.Entry<String, List<Double>> e : porUf.entrySet()) {
+            double[] valores = e.getValue().stream().mapToDouble(Double::doubleValue).toArray();
+            estatisticas.put(e.getKey(), new double[]{Estatistica.media(valores), Estatistica.desvioPadrao(valores),
+                valores.length});
         }
-        double media = Estatistica.media(valores);
-        double desvio = Estatistica.desvioPadrao(valores);
 
         Map<String, ResultadoIndicador> resultado = new LinkedHashMap<>();
         for (Candidato c : candidatos) {
@@ -67,16 +72,17 @@ public class GastoCota extends Indicador {
                 continue;
             }
             Double mediaDep = mediasPorDeputado.get(d.getId());
+            double[] est = estatisticas.get(String.valueOf(d.getUf()));
             if (mediaDep == null) {
                 resultado.put(c.getSq(), ResultadoIndicador.semDados("Nenhuma despesa de cota encontrada"));
-            } else if (valores.length < 3 || Double.isNaN(desvio) || desvio == 0) {
+            } else if (est[2] < 3 || Double.isNaN(est[1]) || est[1] == 0) {
                 resultado.put(c.getSq(), ResultadoIndicador.semDados(
-                        "Pares insuficientes na UF para comparar (" + valores.length + ")"));
+                        "Pares insuficientes na UF para comparar (" + (int) est[2] + ")"));
             } else {
-                double z = Estatistica.zScore(mediaDep, media, desvio);
+                double z = Estatistica.zScore(mediaDep, est[0], est[1]);
                 resultado.put(c.getSq(), ResultadoIndicador.com(z, String.format(
-                        "Média mensal %s; média da UF %s (desvio %s, %d deputados)",
-                        Texto.moeda(mediaDep), Texto.moeda(media), Texto.moeda(desvio), valores.length)));
+                        "Média mensal %s; média dos deputados de %s %s (desvio %s, %d deputados)",
+                        Texto.moeda(mediaDep), d.getUf(), Texto.moeda(est[0]), Texto.moeda(est[1]), (int) est[2])));
             }
         }
         return resultado;

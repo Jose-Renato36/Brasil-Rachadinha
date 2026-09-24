@@ -121,12 +121,17 @@ public class CruzadorIdentidades {
                 return c.getDataNascimento() != null && mesmoNome(c.getNome(), d.getNome())
                         && Objects.equals(c.getDataNascimento(), d.getDataNascimento());
             case NOME_CIVIL:
-                return mesmoNome(c.getNome(), d.getNome());
+                return mesmaUf(c, d) && mesmoNome(c.getNome(), d.getNome());
             case NOME_URNA:
-                return mesmoNome(c.getNomeUrna(), d.getNomeParlamentar());
+                return mesmaUf(c, d) && mesmoNome(c.getNomeUrna(), d.getNomeParlamentar());
             default:
                 return false;
         }
+    }
+
+    /** Na versão nacional, homônimos de outros estados são comuns: critérios só por nome exigem a mesma UF. */
+    private static boolean mesmaUf(Candidato c, Deputado d) {
+        return c.getUf() == null || d.getUf() == null || c.getUf().equalsIgnoreCase(d.getUf());
     }
 
     private static boolean mesmoNome(String a, String b) {

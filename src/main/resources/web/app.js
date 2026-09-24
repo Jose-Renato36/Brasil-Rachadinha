@@ -10,6 +10,13 @@ const EXPERIENCIAS = [
   { codigo: 'NOVO', texto: 'Estreante', explica: 'Sem candidaturas nas eleições anteriores analisadas' },
 ];
 
+const NOMES_UF = { AC: 'Acre', AL: 'Alagoas', AM: 'Amazonas', AP: 'Amapá', BA: 'Bahia', CE: 'Ceará',
+  DF: 'Distrito Federal', ES: 'Espírito Santo', GO: 'Goiás', MA: 'Maranhão', MG: 'Minas Gerais', MS: 'Mato Grosso do Sul',
+  MT: 'Mato Grosso', PA: 'Pará', PB: 'Paraíba', PE: 'Pernambuco', PI: 'Piauí', PR: 'Paraná', RJ: 'Rio de Janeiro',
+  RN: 'Rio Grande do Norte', RO: 'Rondônia', RR: 'Roraima', RS: 'Rio Grande do Sul', SC: 'Santa Catarina', SE: 'Sergipe',
+  SP: 'São Paulo', TO: 'Tocantins', XA: 'Estado fictício A', XB: 'Estado fictício B', XC: 'Estado fictício C' };
+const CARGOS_NACIONAIS = ['PRESIDENTE', 'VICE_PRESIDENTE'];
+
 const app = {
   estado: null,
   config: carregarConfig(),
@@ -33,7 +40,7 @@ function gravarLocal(chave, valor) {
 }
 
 function carregarConfig() {
-  return Object.assign({ pesos: {}, invertidos: {}, inaptos: false, cobertura: 2, metodo: 'soma', avancado: false, cargo: null },
+  return Object.assign({ pesos: {}, invertidos: {}, inaptos: false, cobertura: 2, metodo: 'soma', avancado: false, cargo: null, uf: null },
     lerLocal('config', {}));
 }
 
@@ -99,12 +106,43 @@ function pesoDe(codigo) {
   return codigo === 'alinhamento' ? (app.estado.posicoes > 0 ? 5 : 0) : 5;
 }
 
+function nomeUf(uf) {
+  return NOMES_UF[uf] || uf;
+}
+
+/** Estados presentes na base (sem a linha "BR" da presidência). */
+function ufsDisponiveis() {
+  return Object.keys(app.estado.cargosPorUf || {}).filter(u => u !== 'BR' && u !== '?').sort((a, b) => nomeUf(a).localeCompare(nomeUf(b), 'pt-BR'));
+}
+
+/** UF escolhida pela pessoa (ou a única da base, quando a coleta foi de um estado só). */
+function ufAtual() {
+  const ufs = ufsDisponiveis();
+  if (ufs.includes(app.config.uf)) return app.config.uf;
+  return ufs.length === 1 ? ufs[0] : null;
+}
+
+/** Cargos com candidaturas na UF escolhida, mais a presidência (nacional). */
+function cargosDaUf(uf, soPrincipais = true) {
+  const porUf = app.estado.cargosPorUf || {};
+  const contagem = {};
+  const somar = m => Object.entries(m || {}).forEach(([k, v]) => { contagem[k] = (contagem[k] || 0) + v; });
+  if (uf) {
+    somar(porUf[uf]);
+    somar(porUf.BR);
+  } else {
+    Object.values(porUf).forEach(somar);
+  }
+  return (app.estado.cargos || []).filter(c => contagem[c.codigo] && (!soPrincipais || c.principal))
+    .map(c => Object.assign({}, c, { total: contagem[c.codigo] }));
+}
+
 function cargosPrincipais() {
-  return (app.estado.cargos || []).filter(c => c.principal);
+  return cargosDaUf(ufAtual());
 }
 
 function cargoPadrao() {
-  const lista = cargosPrincipais();
+  const lista = cargosDaUf(ufAtual());
   const salvo = lista.find(c => c.codigo === app.config.cargo);
   return (salvo || lista.find(c => c.codigo === 'DEPUTADO_FEDERAL') || lista[0] || {}).codigo;
 }
@@ -114,9 +152,23 @@ function rotuloCargo(codigo, plural) {
   return c ? c.rotulo : 'Todos os cargos';
 }
 
-async function listaCandidatos(cargo = 'TODOS') {
-  if (!app.candidatos[cargo]) app.candidatos[cargo] = await api('candidatos', cargo === 'TODOS' ? {} : { cargo });
-  return app.candidatos[cargo];
+function paramUf(extra = {}) {
+  const uf = ufAtual();
+  return Object.assign(uf ? { uf } : {}, extra);
+}
+
+function seletorUf(id, incluirBrasil = true) {
+  const atual = ufAtual();
+  return `<select id="${id}" aria-label="Estado">
+    ${incluirBrasil ? `<option value="">Brasil inteiro</option>` : '<option value="">Escolha seu estado</option>'}
+    ${ufsDisponiveis().map(u => `<option value="${u}" ${u === atual ? 'selected' : ''}>${esc(nomeUf(u))}</option>`).join('')}</select>`;
+}
+
+function escolherUf(uf) {
+  app.config.uf = uf || null;
+  salvarConfig();
+  const sel = $('#uf-topo');
+  if (sel) sel.value = uf || '';
 }
 
 // ------------------------------------------------------------ roteamento
@@ -156,7 +208,14 @@ async function atualizarEstado() {
   app.estado = await api('estado');
   app.candidatos = {};
   $('#aviso-demo').hidden = !app.estado.demo;
-  $('#marca-uf').textContent = app.estado.carregada ? app.estado.uf + ' · Eleições ' + app.estado.anoEleicao : '';
+  $('#marca-uf').textContent = app.estado.carregada ? 'Eleições ' + app.estado.anoEleicao : '';
+  const caixa = $('#uf-caixa');
+  if (caixa && app.estado.carregada && ufsDisponiveis().length > 1) {
+    caixa.innerHTML = `<label for="uf-topo">Estado</label>${seletorUf('uf-topo')}`;
+    $('#uf-topo').addEventListener('change', ev => { escolherUf(ev.target.value); navegar(); });
+  } else if (caixa) {
+    caixa.innerHTML = '';
+  }
 }
 
 window.addEventListener('hashchange', navegar);
@@ -172,6 +231,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 async function telaInicio() {
   const e = app.estado;
+  const uf = ufAtual();
   const blocos = cargosPrincipais().map(c => `
     <a class="bloco-cargo" href="#/candidatos/${esc(c.codigo)}">
       <span class="bloco-orgao">${esc(c.orgao)}</span>
@@ -180,7 +240,7 @@ async function telaInicio() {
     </a>`).join('');
   main().innerHTML = `
     <section class="hero">
-      <p class="sobretitulo">Eleições ${e.anoEleicao}${e.demo ? '' : ' · ' + esc(e.uf)}</p>
+      <p class="sobretitulo">Eleições ${e.anoEleicao}${uf ? ' · ' + esc(nomeUf(uf)) : ''}</p>
       <h1>Conheça quem pede o seu voto antes de decidir.</h1>
       <p>Quem já foi político, o que fez, quando e onde. Quem está estreando. Tudo com dados públicos do TSE,
         da Câmara, do Senado e do TCU, e com a fonte de cada número. <strong>Você decide o que é importante.</strong></p>
@@ -189,6 +249,8 @@ async function telaInicio() {
         <div class="sugestoes" id="sugestoes" hidden></div>
       </div>
     </section>
+    ${ufsDisponiveis().length > 1 ? `<div class="onde-vota"><label for="uf-inicio">Onde você vota?</label>${seletorUf('uf-inicio')}
+      <small class="fraco">${uf ? 'Mostrando os cargos de ' + esc(nomeUf(uf)) + ' e a Presidência.' : 'Escolha o estado para ver governador, senador e deputados de lá.'}</small></div>` : ''}
     <h2 class="titulo-secao">Escolha o cargo</h2>
     <div class="grade-cargos">${blocos}</div>
     <h2 class="titulo-secao">Como usar</h2>
@@ -201,18 +263,17 @@ async function telaInicio() {
         <p class="fraco">Diga o que importa (presença, economia, projetos…) e compare até 3 pessoas lado a lado.</p></a>
     </div>`;
   ligarBusca($('#busca-inicio'), $('#sugestoes'));
+  const sel = $('#uf-inicio');
+  if (sel) sel.addEventListener('change', ev => { escolherUf(ev.target.value); telaInicio(); });
 }
 
 function ligarBusca(input, caixa) {
   input.addEventListener('input', async () => {
     const termo = input.value.trim();
     if (termo.length < 2) { caixa.hidden = true; return; }
-    const t = semAcento(termo);
-    const achados = (await listaCandidatos())
-      .filter(c => semAcento(c.nome + ' ' + c.nomeCivil + ' ' + c.partido).includes(t) || String(c.numero).startsWith(termo))
-      .slice(0, 8);
+    const achados = await api('busca', paramUf({ q: termo }));
     caixa.innerHTML = achados.length
-      ? achados.map(c => `<a href="#/candidato/${esc(c.sq)}">${avatar(c, 'pequeno')}<span><strong>${esc(c.nome)}</strong><br><small>${esc(c.cargoTexto)} · Nº ${esc(c.numero)} · ${esc(c.partido)}</small></span></a>`).join('')
+      ? achados.map(c => `<a href="#/candidato/${esc(c.sq)}" data-sq="${esc(c.sq)}">${avatar(c, 'pequeno')}<span><strong>${esc(c.nome)}</strong><br><small>${esc(c.cargoTexto)} · ${esc(c.uf === 'BR' ? 'Brasil' : c.uf)} · Nº ${esc(c.numero)} · ${esc(c.partido)}</small></span></a>`).join('')
       : '<p style="padding:10px 12px" class="fraco">Ninguém encontrado.</p>';
     caixa.hidden = false;
   });
@@ -222,17 +283,21 @@ function ligarBusca(input, caixa) {
 // ------------------------------------------------------------ candidatos (cartões)
 
 const filtroCartoes = { experiencia: 'TODOS', busca: '', ordem: 'nome' };
+let paginaCartoes = { cargo: null, pagina: 1 };
 
 async function telaCandidatos([cargoRota]) {
-  const cargos = app.estado.cargos || [];
+  const cargos = cargosDaUf(ufAtual(), false);
   const cargo = cargos.some(c => c.codigo === cargoRota) ? cargoRota : cargoPadrao();
+  const uf = ufAtual();
+  const nacional = CARGOS_NACIONAIS.includes(cargo);
   app.config.cargo = cargo;
   salvarConfig();
   const abas = cargos.map(c => `<a class="aba ${c.codigo === cargo ? 'ativa' : ''}" href="#/candidatos/${esc(c.codigo)}"
       aria-current="${c.codigo === cargo}">${esc(c.rotulo)} <span>${c.total}</span></a>`).join('');
   main().innerHTML = `
-    <h1>Candidatos a ${esc(rotuloCargo(cargo))}</h1>
+    <h1>Candidatos a ${esc(rotuloCargo(cargo))}${nacional ? '' : uf ? ' em ' + esc(nomeUf(uf)) : ''}</h1>
     <p class="fraco">Clique em um cartão para ver a trajetória e o que a pessoa já fez.</p>
+    ${!uf && !nacional && ufsDisponiveis().length > 1 ? `<p class="caixa-alerta">Você está vendo o Brasil inteiro. Para ver só quem aparece na sua urna, escolha o estado: ${seletorUf('uf-pagina', false)}</p>` : ''}
     <nav class="abas" aria-label="Cargos">${abas}</nav>
     <div class="filtros">
       <div class="chips" role="group" aria-label="Experiência" id="chips-exp"></div>
@@ -246,37 +311,42 @@ async function telaCandidatos([cargoRota]) {
         </select>
       </div>
     </div>
-    <div id="cartoes" class="grade-cartoes" aria-live="polite"></div>`;
-  const lista = await listaCandidatos(cargo);
-  $('#busca-cartoes').addEventListener('input', ev => { filtroCartoes.busca = ev.target.value; desenharCartoes(lista); });
-  $('#ordem').addEventListener('change', ev => { filtroCartoes.ordem = ev.target.value; desenharCartoes(lista); });
-  desenharCartoes(lista);
+    <p class="fraco" id="total-cartoes" aria-live="polite"></p>
+    <div id="cartoes" class="grade-cartoes"></div>
+    <p style="text-align:center;margin-top:18px"><button class="botao secundario" id="mais-cartoes" hidden>Mostrar mais</button></p>`;
+  paginaCartoes = { cargo, pagina: 1 };
+  let t;
+  $('#busca-cartoes').addEventListener('input', ev => { filtroCartoes.busca = ev.target.value; clearTimeout(t); t = setTimeout(() => carregarCartoes(true), 250); });
+  $('#ordem').addEventListener('change', ev => { filtroCartoes.ordem = ev.target.value; carregarCartoes(true); });
+  $('#mais-cartoes').addEventListener('click', () => { paginaCartoes.pagina++; carregarCartoes(false); });
+  const selPag = $('#uf-pagina');
+  if (selPag) selPag.addEventListener('change', ev => { escolherUf(ev.target.value); navegar(); });
+  await carregarCartoes(true);
 }
 
-function desenharCartoes(lista) {
-  const contagem = { TODOS: lista.length };
-  lista.forEach(c => { contagem[c.experiencia] = (contagem[c.experiencia] || 0) + 1; });
+async function carregarCartoes(reiniciar) {
+  if (reiniciar) paginaCartoes.pagina = 1;
+  const r = await api('candidatos', paramUf({ cargo: paginaCartoes.cargo, experiencia: filtroCartoes.experiencia,
+    busca: filtroCartoes.busca, ordem: filtroCartoes.ordem, pagina: paginaCartoes.pagina, porPagina: 48 }));
+  const cont = r.contagem;
   $('#chips-exp').innerHTML = [{ codigo: 'TODOS', texto: 'Todos' }, ...EXPERIENCIAS].map(x =>
     `<button data-exp="${x.codigo}" aria-pressed="${filtroCartoes.experiencia === x.codigo}" title="${esc(x.explica || '')}"
-      class="${x.codigo === 'TODOS' ? '' : 'exp-chip exp-' + x.codigo}">${esc(x.texto)} <span>${contagem[x.codigo] || 0}</span></button>`).join('');
+      class="${x.codigo === 'TODOS' ? '' : 'exp-chip exp-' + x.codigo}">${esc(x.texto)} <span>${cont[x.codigo] || 0}</span></button>`).join('');
   $('#chips-exp').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
     filtroCartoes.experiencia = b.dataset.exp;
-    desenharCartoes(lista);
+    carregarCartoes(true);
   }));
-  const t = semAcento(filtroCartoes.busca.trim());
-  const ordemExp = { MANDATO_ATUAL: 0, JA_ELEITO: 1, JA_CONCORREU: 2, NOVO: 3 };
-  const itens = lista
-    .filter(c => filtroCartoes.experiencia === 'TODOS' || c.experiencia === filtroCartoes.experiencia)
-    .filter(c => !t || semAcento(c.nome + ' ' + c.nomeCivil + ' ' + c.partido + ' ' + c.numero).includes(t))
-    .sort((a, b) => {
-      if (filtroCartoes.ordem === 'numero') return String(a.numero).localeCompare(String(b.numero), 'pt-BR', { numeric: true });
-      if (filtroCartoes.ordem === 'partido') return a.partido.localeCompare(b.partido) || a.nome.localeCompare(b.nome, 'pt-BR');
-      if (filtroCartoes.ordem === 'experiencia') return ordemExp[a.experiencia] - ordemExp[b.experiencia] || a.nome.localeCompare(b.nome, 'pt-BR');
-      return a.nome.localeCompare(b.nome, 'pt-BR');
-    });
   const alvo = $('#cartoes');
-  alvo.innerHTML = itens.length ? itens.map(cartao).join('') : '<p class="fraco">Ninguém com esses filtros.</p>';
-  alvo.querySelectorAll('.cartao-candidato > button.cabeca').forEach(b => b.addEventListener('click', () => alternarCartao(b.closest('.cartao-candidato'))));
+  const html = r.itens.map(cartao).join('');
+  if (reiniciar) alvo.innerHTML = html || '<p class="fraco">Ninguém com esses filtros.</p>';
+  else alvo.insertAdjacentHTML('beforeend', html);
+  alvo.querySelectorAll('.cartao-candidato > button.cabeca:not([data-ligado])').forEach(b => {
+    b.dataset.ligado = '1';
+    b.addEventListener('click', () => alternarCartao(b.closest('.cartao-candidato')));
+  });
+  const mostrados = alvo.querySelectorAll('.cartao-candidato').length;
+  $('#total-cartoes').textContent = `${r.total} candidatura${r.total === 1 ? '' : 's'}` + (r.total > mostrados ? ` · mostrando ${mostrados}` : '');
+  $('#mais-cartoes').hidden = !r.temMais;
 }
 
 function miniLinha(c) {
@@ -293,13 +363,13 @@ function miniLinha(c) {
 function cartao(c) {
   return `<article class="cartao-candidato" data-sq="${esc(c.sq)}">
     <button class="cabeca" aria-expanded="false">
+      <span class="numero-mini" title="Número na urna"><small>Nº</small> ${esc(c.numero)}</span>
       ${avatar(c)}
       <span class="identidade">
         <strong class="nome">${esc(c.nome)}</strong>
-        <span class="linha-info">${esc(c.partido)} · ${esc(c.cargoTexto)}</span>
-        ${seloExperiencia(c)}
+        <span class="linha-info">${esc(c.partido)} · ${esc(c.cargoTexto)}${c.uf && c.uf !== 'BR' && !ufAtual() ? ' · ' + esc(c.uf) : ''}</span>
       </span>
-      <span class="numero-mini" aria-label="Número na urna">${esc(c.numero)}</span>
+      <span class="selo-linha">${seloExperiencia(c)}</span>
     </button>
     ${miniLinha(c)}
     ${etiquetas(c) ? `<div class="etiquetas">${etiquetas(c)}</div>` : ''}
@@ -473,20 +543,58 @@ async function telaCandidato([sq]) {
 // ------------------------------------------------------------ comparar
 
 async function telaComparar() {
-  const todos = await listaCandidatos();
-  const opcoes = sel => '<option value="">— escolher —</option>' + todos.map(c => `<option value="${esc(c.sq)}" ${c.sq === sel ? 'selected' : ''}>${esc(c.nome)} (${esc(c.cargoTexto)}, ${esc(c.partido)} ${esc(c.numero)})</option>`).join('');
   main().innerHTML = `
     <h1>Comparar candidatos</h1>
-    <p class="fraco">Escolha até 3 pessoas. Você também pode adicionar pelos cartões ou pelo perfil.</p>
-    <div class="grade grade-3">${[0, 1, 2].map(i => `<select data-i="${i}" aria-label="Candidato ${i + 1}">${opcoes(app.comparar[i])}</select>`).join('')}</div>
+    <p class="fraco">Escolha até 3 pessoas, de qualquer cargo ou estado. Você também pode adicionar pelos cartões ou pelo perfil.</p>
+    <div class="grade grade-3" id="vagas"></div>
     <div id="comparacao" style="margin-top:20px"></div>`;
-  document.querySelectorAll('select[data-i]').forEach(s => s.addEventListener('change', () => {
-    const escolhidos = [...document.querySelectorAll('select[data-i]')].map(x => x.value).filter(Boolean);
-    app.comparar = [...new Set(escolhidos)];
-    gravarLocal('comparar', app.comparar);
-    desenharComparacao();
-  }));
+  await desenharVagas();
   await desenharComparacao();
+}
+
+async function desenharVagas() {
+  const perfis = await Promise.all(app.comparar.map(sq => api('candidato', { sq }).catch(() => null)));
+  app.comparar = app.comparar.filter((sq, i) => perfis[i]);
+  gravarLocal('comparar', app.comparar);
+  const vagas = [0, 1, 2].map(i => {
+    const c = perfis.filter(Boolean)[i];
+    if (c) {
+      return `<div class="vaga cheia">${avatar(c, 'pequeno')}<span><strong>${esc(c.nome)}</strong><br>
+        <small>${esc(c.cargoTexto)} · ${esc(c.partido)} ${esc(c.numero)}</small></span>
+        <button class="botao discreto" data-remover="${esc(c.sq)}" aria-label="Remover ${esc(c.nome)}">✕</button></div>`;
+    }
+    return `<div class="vaga busca"><input type="search" data-vaga="${i}" placeholder="Procurar pelo nome ou número" aria-label="Escolher candidato ${i + 1}" autocomplete="off">
+      <div class="sugestoes" hidden></div></div>`;
+  }).join('');
+  $('#vagas').innerHTML = vagas;
+  $('#vagas').querySelectorAll('[data-remover]').forEach(b => b.addEventListener('click', async () => {
+    app.comparar = app.comparar.filter(s => s !== b.dataset.remover);
+    gravarLocal('comparar', app.comparar);
+    await desenharVagas();
+    await desenharComparacao();
+  }));
+  $('#vagas').querySelectorAll('input[data-vaga]').forEach(input => {
+    const caixa = input.nextElementSibling;
+    let t;
+    input.addEventListener('input', () => {
+      clearTimeout(t);
+      t = setTimeout(async () => {
+        const termo = input.value.trim();
+        if (termo.length < 2) { caixa.hidden = true; return; }
+        const achados = await api('busca', paramUf({ q: termo }));
+        caixa.innerHTML = achados.length ? achados.map(c => `<a href="#" data-sq="${esc(c.sq)}">${avatar(c, 'pequeno')}<span><strong>${esc(c.nome)}</strong><br><small>${esc(c.cargoTexto)} · ${esc(c.uf === 'BR' ? 'Brasil' : c.uf)} · ${esc(c.partido)} ${esc(c.numero)}</small></span></a>`).join('')
+          : '<p style="padding:10px 12px" class="fraco">Ninguém encontrado.</p>';
+        caixa.hidden = false;
+        caixa.querySelectorAll('a[data-sq]').forEach(a => a.addEventListener('mousedown', async ev => {
+          ev.preventDefault();
+          if (!app.comparar.includes(a.dataset.sq)) alternarComparacao(a.dataset.sq);
+          await desenharVagas();
+          await desenharComparacao();
+        }));
+      }, 200);
+    });
+    input.addEventListener('blur', () => setTimeout(() => { caixa.hidden = true; }, 200));
+  });
 }
 
 async function desenharComparacao() {
@@ -494,15 +602,16 @@ async function desenharComparacao() {
   if (!app.comparar.length) { alvo.innerHTML = '<p class="caixa-info">Nenhuma pessoa escolhida ainda.</p>'; return; }
   const perfis = await Promise.all(app.comparar.map(sq => api('candidato', { sq })));
   // notas normalizadas com o mesmo peso em tudo, entre candidatos do mesmo cargo de cada pessoa
-  const cargos = [...new Set(perfis.map(c => c.cargo))];
+  const grupos = [...new Set(perfis.map(c => c.cargo + '|' + c.uf))];
   const notas = {};
-  for (const cargo of cargos) {
-    const p = { inaptos: 1, cobertura: 1, cargo };
+  for (const g of grupos) {
+    const [cargo, uf] = g.split('|');
+    const p = { inaptos: 1, cobertura: 1, cargo, uf: CARGOS_NACIONAIS.includes(cargo) ? '' : uf };
     app.estado.indicadores.forEach(ind => { p['peso.' + ind.codigo] = 10; });
     (await api('ranking', p)).itens.forEach(i => { notas[i.sq] = i.indicadores; });
   }
   const linhas = [
-    ['Cargo disputado', c => esc(c.cargoTexto)],
+    ['Cargo disputado', c => esc(c.cargoTexto) + (c.uf && c.uf !== 'BR' ? ' · ' + esc(nomeUf(c.uf)) : '')],
     ['Número / partido', c => `<strong>${esc(c.numero)}</strong> · ${esc(c.partido)}`],
     ['Experiência', c => seloExperiencia(c)],
     ['Eleições anteriores', c => c.trajetoria.length ? c.trajetoria.map(t => `${t.ano}: ${esc(t.cargoTexto)} – ${esc(t.resultado)}`).join('<br>') : 'nenhuma encontrada'],
@@ -530,7 +639,7 @@ async function desenharComparacao() {
     </table></div>
     <div class="cartao grafico" style="margin-top:16px">
       <h2>Posição em cada critério</h2>
-      <p class="fraco">0 = pior e 100 = melhor entre os candidatos ao <strong>mesmo cargo</strong>, no sentido padrão de cada critério. “s/d” = sem dados (não é zero).</p>
+      <p class="fraco">0 = pior e 100 = melhor entre os candidatos ao <strong>mesmo cargo no mesmo estado</strong>, no sentido padrão de cada critério. “s/d” = sem dados (não é zero).</p>
       <div class="legenda">${series.map(s => `<span style="--cor:${s.cor}">${esc(s.nome)}</span>`).join('')}</div>
       ${graficoBarras(app.estado.indicadores.map(i => i.titulo), series, { maximo: 100 })}
     </div>`;
@@ -538,7 +647,7 @@ async function desenharComparacao() {
 
 // ------------------------------------------------------------ panorama
 
-const DISTRIBUICOES = [['experiencia', 'Experiência'], ['escolaridade', 'Escolaridade'], ['idade', 'Idade'],
+const DISTRIBUICOES = [['experiencia', 'Experiência'], ['uf', 'Estado'], ['escolaridade', 'Escolaridade'], ['idade', 'Idade'],
   ['patrimonio', 'Bens declarados'], ['genero', 'Gênero'], ['corRaca', 'Cor/raça'], ['partido', 'Partido'],
   ['elegibilidade', 'Situação']];
 let panorama = { tipo: 'experiencia' };
@@ -551,9 +660,12 @@ async function telaPanorama() {
     <h1>Panorama das candidaturas</h1>
     <p class="fraco">Quem são as pessoas que disputam a eleição? Estes gráficos descrevem o grupo, sem avaliar ninguém.
       Gênero e cor/raça aparecem só aqui e <strong>nunca</strong> entram na nota.</p>
-    <label for="pan-cargo">Cargo</label>
-    <select id="pan-cargo" style="max-width:360px;margin-bottom:16px"><option value="TODOS">Todos os cargos</option>
-      ${(app.estado.cargos || []).map(c => `<option value="${c.codigo}" ${c.codigo === cargo ? 'selected' : ''}>${esc(c.rotulo)}</option>`).join('')}</select>
+    <div class="grade grade-2" style="margin-bottom:16px">
+    <div><label for="pan-uf">Estado</label>${seletorUf('pan-uf')}</div>
+    <div><label for="pan-cargo">Cargo</label>
+    <select id="pan-cargo"><option value="TODOS">Todos os cargos</option>
+      ${(app.estado.cargos || []).map(c => `<option value="${c.codigo}" ${c.codigo === cargo ? 'selected' : ''}>${esc(c.rotulo)}</option>`).join('')}</select></div>
+    </div>
     <div class="cartao grafico">
       <div class="chips" role="group" aria-label="Escolha o gráfico">${DISTRIBUICOES.map(([k, n]) => `<button data-d="${k}" aria-pressed="${k === panorama.tipo}">${n}</button>`).join('')}</div>
       <div id="distribuicao"></div>
@@ -572,6 +684,7 @@ async function telaPanorama() {
     panorama.tipo = b.dataset.d;
     desenharDistribuicao();
   }));
+  $('#pan-uf').addEventListener('change', ev => { escolherUf(ev.target.value); desenharDistribuicao(); desenharDispersao(); });
   $('#pan-cargo').addEventListener('change', ev => { app.config.panoramaCargo = ev.target.value; salvarConfig(); desenharDistribuicao(); desenharDispersao(); });
   $('#var-x').addEventListener('change', desenharDispersao);
   $('#var-y').addEventListener('change', desenharDispersao);
@@ -580,7 +693,8 @@ async function telaPanorama() {
 
 function cargoPanorama() {
   const c = $('#pan-cargo').value;
-  return c === 'TODOS' ? {} : { cargo: c };
+  const uf = $('#pan-uf').value;
+  return Object.assign(c === 'TODOS' ? {} : { cargo: c }, uf ? { uf } : {});
 }
 
 async function desenharDistribuicao() {
@@ -606,6 +720,7 @@ async function telaRanking() {
     <h1>O que importa pra você?</h1>
     <p class="fraco">Escolha quanto cada critério pesa. A lista se reorganiza na hora.
       <a class="so-celular" href="#resultados-titulo">Ver a lista ↓</a></p>
+    ${!ufAtual() && ufsDisponiveis().length > 1 ? `<p class="caixa-alerta">Escolha o seu estado para comparar só quem aparece na sua urna: ${seletorUf('uf-rk', false)}</p>` : ''}
     <div class="linha-cargo"><label for="rk-cargo">Comparar candidatos a</label>
       <select id="rk-cargo">${cargosPrincipais().map(c => `<option value="${c.codigo}" ${c.codigo === cargo ? 'selected' : ''}>${esc(c.rotulo)} (${c.total})</option>`).join('')}</select></div>
     <p class="caixa-info" id="aviso-cargo" hidden></p>
@@ -639,6 +754,7 @@ async function telaRanking() {
   $('#opt-metodo').addEventListener('change', ev => { app.config.metodo = ev.target.value; mudouConfig(); });
   $('#filtro').addEventListener('input', () => desenharResultados());
   $('#rk-cargo').addEventListener('change', ev => { app.config.cargo = ev.target.value; mudouConfig(); avisoCargo(); });
+  if ($('#uf-rk')) $('#uf-rk').addEventListener('change', ev => { escolherUf(ev.target.value); navegar(); });
   avisoCargo();
   await carregarRanking();
 }
@@ -699,6 +815,8 @@ let ultimoRanking = null;
 async function carregarRanking() {
   const p = { inaptos: app.config.inaptos ? 1 : 0, cobertura: app.config.cobertura, metodo: app.config.metodo,
     cargo: app.config.cargo || cargoPadrao() };
+  const uf = ufAtual();
+  if (uf && !CARGOS_NACIONAIS.includes(p.cargo)) p.uf = uf;
   app.estado.indicadores.forEach(ind => {
     p['peso.' + ind.codigo] = pesoDe(ind.codigo);
     if (app.config.invertidos[ind.codigo]) p['inv.' + ind.codigo] = 1;
@@ -944,14 +1062,15 @@ async function telaDados() {
         ${e.carregada ? `<p><strong>${esc(e.descricao)}</strong></p>
           <p class="fraco">${e.candidatos} candidaturas · ${e.deputados} deputados · ${e.votacoes} votações${e.geradoEm ? ' · processado em ' + esc(e.geradoEm) : ''}</p>` : '<p>Nenhuma base carregada.</p>'}
         <h3 style="margin-top:16px">Abrir outra base</h3>
-        <div class="chips">${e.basesDisponiveis.map(b => `<button data-base="${esc(b)}" aria-pressed="${b === e.base}">${b === 'demo' ? 'Demonstração (fictícia)' : esc(b)}</button>`).join('')}</div>
+        <div class="chips">${e.basesDisponiveis.map(b => `<button data-base="${esc(b)}" aria-pressed="${b === e.base}">${b === 'demo' ? 'Demonstração (fictícia)' : b === 'BR' ? 'Brasil inteiro' : esc(nomeUf(b))}</button>`).join('')}</div>
       </section>
       <section class="cartao">
         <h2>Coletar dados reais</h2>
-        <p class="fraco">Baixa os arquivos públicos do TSE e da Câmara do seu estado. Na primeira vez pode levar
-          <strong>vários minutos</strong> (são centenas de MB); depois fica guardado no computador.</p>
+        <p class="fraco">Baixa os arquivos públicos do TSE, da Câmara, do Senado e do TCU. O Brasil inteiro soma
+          <strong>alguns GB</strong> e a primeira coleta pode levar mais de uma hora; depois fica guardado no computador.
+          Um estado só é mais rápido.</p>
         <div class="grade grade-2">
-          <div><label for="uf">Estado</label><select id="uf">${UFS.map(u => `<option ${u === 'SE' ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
+          <div><label for="uf">Estado</label><select id="uf"><option value="BR" selected>Brasil inteiro (todos os estados)</option>${UFS.map(u => `<option value="${u}">${esc(nomeUf(u))}</option>`).join('')}</select></div>
           <div><label for="ano">Eleição</label><select id="ano"><option>2026</option><option>2022</option></select></div>
         </div>
         <p style="margin-top:10px"><label style="font-weight:400"><input type="checkbox" id="baixar" checked> Baixar arquivos que ainda não estão no computador</label></p>

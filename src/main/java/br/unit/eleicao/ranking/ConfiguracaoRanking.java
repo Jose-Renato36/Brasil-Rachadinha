@@ -16,6 +16,7 @@ public class ConfiguracaoRanking {
     private boolean ocultarInaptos = true;
     private int coberturaMinima = 1;
     private br.unit.eleicao.modelo.Cargo cargo;
+    private String uf;
 
     public void setPeso(String codigo, int peso) {
         if (peso < 0 || peso > PESO_MAXIMO) {
@@ -63,6 +64,25 @@ public class ConfiguracaoRanking {
 
     public void setCargo(br.unit.eleicao.modelo.Cargo cargo) {
         this.cargo = cargo;
+    }
+
+    /** Só compara candidaturas desta UF (null = todas; presidente é sempre nacional). */
+    public String getUf() {
+        return uf;
+    }
+
+    public void setUf(String uf) {
+        this.uf = uf;
+    }
+
+    /** true se a candidatura entra na comparação pelo cargo e pela UF escolhidos. */
+    public boolean aceita(br.unit.eleicao.modelo.Candidato c) {
+        if (cargo != null && c.getTipoCargo() != cargo) {
+            return false;
+        }
+        boolean nacional = c.getTipoCargo() == br.unit.eleicao.modelo.Cargo.PRESIDENTE
+                || c.getTipoCargo() == br.unit.eleicao.modelo.Cargo.VICE_PRESIDENTE;
+        return uf == null || nacional || uf.equalsIgnoreCase(c.getUf());
     }
 
     public boolean isOcultarInaptos() {

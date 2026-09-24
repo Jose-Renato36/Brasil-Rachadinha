@@ -48,7 +48,8 @@ public class BaseDados {
     }
 
     public void adicionarVoto(int idDeputado, String idVotacao, String voto) {
-        votos.computeIfAbsent(idDeputado, k -> new HashMap<>()).put(idVotacao, voto);
+        // na versão nacional são ~1 milhão de votos: compartilhar os textos repetidos economiza memória
+        votos.computeIfAbsent(idDeputado, k -> new HashMap<>()).put(idVotacao.intern(), voto == null ? "" : voto.intern());
     }
 
     public void adicionarDespesa(Despesa d) {

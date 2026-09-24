@@ -49,6 +49,39 @@ public final class ArquivosBrutos {
         throw new ArquivoInvalidoException("Nenhuma entrada terminada em '" + sufixoEntrada + "' dentro de " + arquivo);
     }
 
+    /** Código usado para a coleta do Brasil inteiro. */
+    public static final String NACIONAL = "BR";
+
+    public static boolean isNacional(String uf) {
+        return NACIONAL.equalsIgnoreCase(uf);
+    }
+
+    /**
+     * Entradas a ler dentro dos zips do TSE: a da UF (ex.: "_SE.csv") ou, no modo nacional, o arquivo do
+     * país inteiro ("_BRASIL.csv") e o de abrangência nacional ("_BR.csv", onde fica a eleição presidencial).
+     */
+    public static String[] sufixos(String uf) {
+        return isNacional(uf) ? new String[]{"_BRASIL.csv", "_BR.csv"} : new String[]{"_" + uf.toUpperCase() + ".csv"};
+    }
+
+    /** true se a linha é da UF pedida (no modo nacional, todas são). */
+    public static boolean aceitaUf(String ufPedida, String ufLinha) {
+        return isNacional(ufPedida) || ufPedida.equalsIgnoreCase(ufLinha);
+    }
+
+    /** Como {@link #abrir}, mas devolve null quando o zip não tem a entrada (útil para entradas opcionais). */
+    public static LeitorCsv abrirSeExistir(Path arquivo, Charset charset, String sufixoEntrada)
+            throws ArquivoInvalidoException {
+        try {
+            return abrir(arquivo, charset, sufixoEntrada);
+        } catch (ArquivoInvalidoException e) {
+            if (e.getMessage() != null && e.getMessage().startsWith("Nenhuma entrada")) {
+                return null;
+            }
+            throw e;
+        }
+    }
+
     private static void fecharSilenciosamente(InputStream in) {
         if (in == null) {
             return;

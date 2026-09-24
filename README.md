@@ -2,8 +2,8 @@
 
 Projeto da disciplina **Projeto de Programação** (Java). Um site que roda no seu computador
 (`http://localhost:8080`) e reúne dados públicos do **TSE** e da **Câmara dos Deputados** sobre as
-candidaturas de **todos os cargos** de um estado (governador, senador, deputado federal e estadual),
-com a trajetória política de cada pessoa e o que ela fez nos mandatos anteriores. Quem usa escolhe o que é importante; o sistema calcula
+candidaturas de **todos os cargos, no Brasil inteiro** (presidente, governador, senador, deputado federal e
+estadual), com filtro por estado, a trajetória política de cada pessoa e o que ela fez nos mandatos anteriores. Quem usa escolhe o que é importante; o sistema calcula
 indicadores e mostra de onde veio cada número.
 
 > O sistema **não diz quem é o melhor candidato**. O foco é a transparência do método, não um veredito.
@@ -16,11 +16,15 @@ indicadores e mostra de onde veio cada número.
 3. No seletor de execução (canto superior direito) já aparecem três configurações prontas (pasta `.run/`):
    - **1 - Abrir o site (localhost)**: sobe o servidor e abre o navegador em `http://localhost:8080`
      com a demonstração. Para parar, clique em *Stop*.
-   - **2 - Coletar dados de SE**: baixa e processa os dados reais de Sergipe (troque a UF nos argumentos).
+   - **2 - Coletar dados do Brasil**: baixa e processa os dados reais do país inteiro (`coletar BR`). Para um
+     estado só, troque o argumento pela sigla (ex.: `coletar SE`), que é bem mais rápido.
    - **3 - Rodar os testes**: `mvn test`.
 
 Sem o IntelliJ: `mvn compile exec:java` (abre o site) ou `mvn package` e
 `java -jar target/decisao-eleitoral-0.2.0.jar`.
+
+O **seletor de estado** fica no topo de todas as páginas. A primeira coleta do Brasil inteiro baixa alguns GB
+e pode passar de uma hora; depois fica guardada em `dados/` e o site abre direto nela.
 
 A coleta também pode ser feita **pelo próprio site**, na aba **Dados**: escolha a UF, clique em
 *Coletar e abrir* e acompanhe o andamento na tela.
@@ -30,14 +34,14 @@ A coleta também pode ser feita **pelo próprio site**, na aba **Dados**: escolh
 | Comando | O que faz |
 |---|---|
 | `web [UF\|demo] [porta]` | sobe o site (padrão: demonstração, porta 8080 ou a próxima livre) |
-| `coletar SE [2026] [--sem-download]` | baixa e processa a UF; `--sem-download` usa só o que está em `dados/brutos/` |
+| `coletar BR [2026] [--sem-download]` | baixa e processa o **Brasil inteiro** (ou `coletar SE` para um estado); `--sem-download` usa só o que está em `dados/brutos/` |
 | `ranking SE\|demo` | imprime o ranking com pesos iguais no console |
 
 ## O site
 
 | Aba | Para quê |
 |---|---|
-| **Início** | busca por nome ou número e escolha do cargo |
+| **Início** | "Onde você vota?", busca por nome ou número e escolha do cargo (os do seu estado + Presidência) |
 | **Candidatos** | todas as candidaturas do cargo em **cartões**: estreante, já concorreu, já eleito(a), com mandato hoje, e uma linha do tempo 2018–2024. Ao clicar, o cartão abre com a trajetória, o que fez nos mandatos (presença, projetos, verba), contas no TCU, bens e dados pessoais |
 | **O que importa pra mim** | para cada critério: *Não importa / Importa / Importa muito*; a lista se reorganiza na hora. Opções avançadas: pesos de 0 a 10, inverter o sentido, TOPSIS, cobertura mínima |
 | **Minhas opiniões** | projetos já votados no Plenário, um por vez: *Eu votaria SIM / NÃO / Pular*. Alimenta o critério "Vota como eu votaria" |

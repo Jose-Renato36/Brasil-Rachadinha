@@ -31,7 +31,7 @@ public abstract class MetodoRanking {
         List<Candidato> candidatos = new ArrayList<>();
         java.util.Set<String> doCargo = new java.util.HashSet<>();
         for (Candidato c : matriz.getBase().getCandidatos()) {
-            if (config.getCargo() != null && c.getTipoCargo() != config.getCargo()) {
+            if (!config.aceita(c)) {
                 continue;
             }
             doCargo.add(c.getSq());

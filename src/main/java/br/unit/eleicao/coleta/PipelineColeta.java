@@ -73,7 +73,8 @@ public class PipelineColeta {
         }
 
         Metadados meta = new Metadados(uf, anoEleicao, anoAnterior, dataPrimeiroTurno(anoEleicao));
-        meta.setDescricao("TSE + Câmara dos Deputados, " + uf + ", eleição " + anoEleicao);
+        meta.setDescricao("Eleições " + anoEleicao + " · " + (ArquivosBrutos.isNacional(uf) ? "Brasil inteiro" : uf)
+                + " · TSE, Câmara, Senado e TCU");
         meta.setGeradoEm(LocalDateTime.now().withNano(0).toString());
         BaseDados base = new BaseDados(meta);
 

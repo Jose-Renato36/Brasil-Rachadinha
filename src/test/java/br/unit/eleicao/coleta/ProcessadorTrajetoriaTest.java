@@ -67,11 +67,11 @@ class ProcessadorTrajetoriaTest {
         CandidaturaAnterior prefeitura = ana.getTrajetoria().get(0);
         assertEquals(2024, prefeitura.getAno());
         assertEquals("Não eleito(a)", prefeitura.getResultado(), "resultado do 2º turno");
-        assertEquals("CIDADE A", prefeitura.getLocal());
+        assertEquals("CIDADE A/ZZ", prefeitura.getLocal());
         CandidaturaAnterior estadual = ana.getTrajetoria().get(1);
         assertTrue(estadual.isEleito());
         assertEquals("Deputado(a) estadual", estadual.getCargoLegivel());
-        assertEquals("", estadual.getLocal(), "eleição geral não tem município");
+        assertEquals("ZZ", estadual.getLocal(), "eleição geral: só a UF");
         assertEquals(estadual, ana.getMandatoAtual(2026), "eleita em 2022: mandato até 2026");
 
         assertEquals(1, jose.getTrajetoria().size(), "homônimo com outra data de nascimento não entra");

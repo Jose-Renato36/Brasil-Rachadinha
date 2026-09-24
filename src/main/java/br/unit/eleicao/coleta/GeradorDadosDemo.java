@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Gera uma base 100% FICTÍCIA (pessoas "Exemplo", partidos "PX_", UF "XX") para demonstrar
+ * Gera uma base 100% FICTÍCIA (pessoas "Exemplo", partidos "PX_", estados "XA", "XB" e "XC") para demonstrar
  * o sistema sem internet. Nenhum número aqui descreve pessoa ou partido real.
  * A semente é fixa, então a demonstração é sempre a mesma.
  */
@@ -44,10 +44,10 @@ public class GeradorDadosDemo {
     private final Random rnd = new Random(SEMENTE);
 
     public BaseDados gerar() {
-        Metadados meta = new Metadados("XX", 2026, 2022, PipelineColeta.dataPrimeiroTurno(2026));
+        Metadados meta = new Metadados(ArquivosBrutos.NACIONAL, 2026, 2022, PipelineColeta.dataPrimeiroTurno(2026));
         meta.setDemonstracao(true);
         meta.setTcuVerificado(true);
-        meta.setDescricao("DADOS FICTÍCIOS de demonstração - não representam pessoas reais");
+        meta.setDescricao("DADOS FICTÍCIOS de demonstração (3 estados fictícios + Presidência) - não representam pessoas reais");
         meta.setGeradoEm("gerador com semente fixa " + SEMENTE);
         BaseDados base = new BaseDados(meta);
 
@@ -63,7 +63,7 @@ public class GeradorDadosDemo {
             Deputado d = new Deputado(9000 + i, NOMES[i] + " Exemplo", NOMES[i] + " da Silva Exemplo",
                     nascimento(), i % 3 == 0 ? "FEMININO" : "MASCULINO");
             d.setPartido(PARTIDOS[i % PARTIDOS.length]);
-            d.setUf("XX");
+            d.setUf(UFS[i % UFS.length]);
             base.adicionarDeputado(d);
             deputados.add(d);
             gerarAtividade(base, d, votacoes, orientacao, i == 11);
@@ -73,6 +73,7 @@ public class GeradorDadosDemo {
             base.adicionarCandidato(gerarCandidato(i, i < 9 ? deputados.get(i) : null));
         }
         gerarOutrosCargos(base, deputados);
+        gerarPresidencia(base);
         return base;
     }
 
@@ -161,7 +162,7 @@ public class GeradorDadosDemo {
                 NOMES[i] + " Exemplo", nasc, genero);
         c.setNumero(String.valueOf(1100 + i * 7));
         c.setPartido(deputado != null ? deputado.getPartido() : PARTIDOS[rnd.nextInt(PARTIDOS.length)]);
-        c.setUf("XX");
+        c.setUf(deputado != null ? deputado.getUf() : UFS[i % UFS.length]);
         c.setCargo("DEPUTADO FEDERAL");
         c.setGrauInstrucao(escolaridade());
         c.setCorRaca(rnd.nextDouble() < 0.08 ? CORES[3 + rnd.nextInt(2)] : CORES[rnd.nextInt(3)]);
@@ -205,6 +206,9 @@ public class GeradorDadosDemo {
         return c;
     }
 
+    /** Estados fictícios da demonstração. */
+    static final String[] UFS = {"XA", "XB", "XC"};
+
     private static final String[] OUTROS_NOMES = {"Beatriz", "Caio", "Denise", "Eduardo", "Fernanda", "Gustavo",
         "Helena", "Igor", "Joana", "Kleber", "Laura", "Marcelo", "Natália", "Otávio", "Priscila", "Renato", "Sabrina",
         "Tomás", "Valéria", "Wagner", "Yasmin", "Zilda", "André", "Bianca", "Cláudio"};
@@ -219,7 +223,7 @@ public class GeradorDadosDemo {
             Candidato c = new Candidato("DEMO" + (2000 + i), OUTROS_NOMES[i] + " Souza Exemplo",
                     OUTROS_NOMES[i] + " Exemplo", nascimento(), rnd.nextDouble() < 0.4 ? "FEMININO" : "MASCULINO");
             c.setCargo(cargo);
-            c.setUf("XX");
+            c.setUf(UFS[i % UFS.length]);
             c.setPartido(PARTIDOS[rnd.nextInt(PARTIDOS.length)]);
             c.setNumero(cargo.equals("GOVERNADOR") ? String.valueOf(numero++) : cargo.equals("SENADOR")
                     ? String.valueOf(100 + i * 11) : String.valueOf(10000 + i * 137));
@@ -279,6 +283,33 @@ public class GeradorDadosDemo {
                         c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2024, "VEREADOR", "CIDADE FICTÍCIA",
                                 c.getPartido(), i % 2 == 0 ? "Eleito(a)" : "Não eleito(a)"));
                     }
+            }
+            base.adicionarCandidato(c);
+        }
+    }
+
+    /** Três candidaturas fictícias à presidência (abrangência nacional, UF "BR"). */
+    private void gerarPresidencia(BaseDados base) {
+        String[] nomes = {"Lúcia", "Paulo", "Rita"};
+        for (int i = 0; i < nomes.length; i++) {
+            Candidato c = new Candidato("DEMO" + (3000 + i), nomes[i] + " Nacional Exemplo", nomes[i] + " Exemplo",
+                    nascimento(), i == 1 ? "MASCULINO" : "FEMININO");
+            c.setCargo("PRESIDENTE");
+            c.setUf(ArquivosBrutos.NACIONAL);
+            c.setPartido(PARTIDOS[i]);
+            c.setNumero(String.valueOf(70 + i * 7));
+            c.setGrauInstrucao(GrauInstrucao.SUPERIOR_COMPLETO);
+            c.setCorRaca(CORES[i]);
+            c.setOcupacao(OCUPACOES[i + 2]);
+            c.setSituacao("APTO");
+            c.setDetalheSituacao("DEFERIDO");
+            c.setPatrimonio((double) Math.round(Math.exp(13 + rnd.nextGaussian())));
+            if (i == 0) {
+                c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2022, "GOVERNADOR", "XA", c.getPartido(),
+                        "Eleito(a)"));
+            } else if (i == 1) {
+                c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2022, "PRESIDENTE", "", c.getPartido(),
+                        "Não eleito(a)"));
             }
             base.adicionarCandidato(c);
         }

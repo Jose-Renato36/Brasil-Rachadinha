@@ -91,12 +91,12 @@ public class ProcessadorCamara {
         return false;
     }
 
-    private Deputado deputado(int id, String nome) {
-        return deputados.computeIfAbsent(id, k -> {
-            Deputado d = new Deputado(k, nome, null, null, null);
-            d.setUf(uf);
-            return d;
-        });
+    private Deputado deputado(int id, String nome, String ufDeputado) {
+        Deputado d = deputados.computeIfAbsent(id, k -> new Deputado(k, nome, null, null, null));
+        if (!Texto.vazio(ufDeputado)) {
+            d.setUf(ufDeputado.toUpperCase());
+        }
+        return d;
     }
 
     /** Votações do Plenário ocorridas na legislatura. Só entram na base as que tiverem voto da UF. */
@@ -162,7 +162,7 @@ public class ProcessadorCamara {
             int iHora = csv.indiceOpcional("dataHoraVoto");
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
-                if (!uf.equalsIgnoreCase(LeitorCsv.campo(l, iUf))) {
+                if (!ArquivosBrutos.aceitaUf(uf, LeitorCsv.campo(l, iUf))) {
                     continue;
                 }
                 if (iLeg >= 0 && !leg.equals(LeitorCsv.campo(l, iLeg))) {
@@ -173,7 +173,7 @@ public class ProcessadorCamara {
                 if (id == null || votacao == null) {
                     continue;
                 }
-                Deputado d = deputado(id, LeitorCsv.campo(l, iNome));
+                Deputado d = deputado(id, LeitorCsv.campo(l, iNome), LeitorCsv.campo(l, iUf));
                 // o voto mais recente define partido e foto atuais
                 String hora = LeitorCsv.campo(l, iHora);
                 if (hora.compareTo(ultimoVoto.getOrDefault(id, "")) >= 0) {
@@ -211,7 +211,7 @@ public class ProcessadorCamara {
             int iValor = csv.indice("vlrLiquido");
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
-                if (!uf.equalsIgnoreCase(LeitorCsv.campo(l, iUf))) {
+                if (!ArquivosBrutos.aceitaUf(uf, LeitorCsv.campo(l, iUf))) {
                     continue;
                 }
                 // lideranças partidárias também usam a cota e vêm sem ideCadastro: não são deputados
@@ -226,7 +226,7 @@ public class ProcessadorCamara {
                 if (LocalDate.of(anoDesp, mes, 1).isBefore(inicioLegislatura.withDayOfMonth(1))) {
                     continue;
                 }
-                Deputado d = deputado(id, LeitorCsv.campo(l, iNome));
+                Deputado d = deputado(id, LeitorCsv.campo(l, iNome), LeitorCsv.campo(l, iUf));
                 if (Texto.vazio(d.getPartido())) {
                     d.setPartido(LeitorCsv.campo(l, iPartido));
                 }

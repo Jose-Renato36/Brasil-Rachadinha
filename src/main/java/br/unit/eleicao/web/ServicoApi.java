@@ -144,6 +144,14 @@ public class ServicoApi {
                 cargos.add(cm);
             }
             r.put("cargos", cargos);
+            r.put("nacional", br.unit.eleicao.coleta.ArquivosBrutos.isNacional(meta.getUf()));
+            // UF -> cargo -> total (para o seletor de estado e os cartões de cargo)
+            Map<String, Map<String, Integer>> porUf = new java.util.TreeMap<>();
+            for (Candidato c : base.getCandidatos()) {
+                porUf.computeIfAbsent(c.getUf() == null ? "?" : c.getUf(), k -> new LinkedHashMap<>())
+                        .merge(c.getTipoCargo().name(), 1, Integer::sum);
+            }
+            r.put("cargosPorUf", porUf);
         }
         return r;
     }
@@ -176,6 +184,7 @@ public class ServicoApi {
         config.setOcultarInaptos(!"1".equals(p.get("inaptos")));
         config.setCoberturaMinima(Math.max(1, inteiro(p.get("cobertura"), 1)));
         config.setCargo(cargo(p.get("cargo")));
+        config.setUf(uf(p.get("uf")));
         MetodoRanking metodo = "topsis".equals(p.get("metodo")) ? new Topsis() : new SomaPonderada();
 
         List<Object> itens = new ArrayList<>();
@@ -219,6 +228,7 @@ public class ServicoApi {
         m.put("nome", c.getNomeExibicao());
         m.put("nomeCivil", c.getNome());
         m.put("partido", c.getPartido());
+        m.put("uf", c.getUf());
         m.put("numero", c.getNumero());
         m.put("foto", d == null ? null : d.getUrlFoto());
         m.put("mandato", d != null);
@@ -258,16 +268,89 @@ public class ServicoApi {
 
     // ------------------------------------------------------------------ candidatos
 
-    public synchronized List<Object> candidatos(String cargo) throws DadosException {
+    /**
+     * Cartões filtrados e paginados no servidor (no Brasil inteiro são dezenas de milhares de candidaturas).
+     * Parâmetros: uf, cargo, experiencia, busca, ordem (nome|numero|partido|experiencia), pagina, porPagina.
+     */
+    public synchronized Map<String, Object> candidatos(Map<String, String> p) throws DadosException {
         exigirBase();
-        Cargo cg = cargo(cargo);
-        List<Object> lista = new ArrayList<>();
-        for (Candidato c : base.getCandidatosOrdenadosPorNome()) {
-            if (cg == null || c.getTipoCargo() == cg) {
-                lista.add(resumoCandidato(c));
+        String termo = Texto.normalizar(p.get("busca"));
+        String exp = p.getOrDefault("experiencia", "TODOS");
+        Map<String, Integer> contagem = new LinkedHashMap<>();
+        List<Candidato> filtrados = new ArrayList<>();
+        Map<String, String> expDe = new java.util.HashMap<>();
+        for (Candidato c : candidatosDo(p.get("cargo"), p.get("uf"))) {
+            if (!termo.isEmpty() && !Texto.normalizar(c.getNomeExibicao() + " " + c.getNome() + " " + c.getPartido()
+                    + " " + c.getNumero()).contains(termo)) {
+                continue;
+            }
+            String e = experiencia(c)[0];
+            expDe.put(c.getSq(), e);
+            contagem.merge("TODOS", 1, Integer::sum);
+            contagem.merge(e, 1, Integer::sum);
+            if ("TODOS".equals(exp) || exp.equals(e)) {
+                filtrados.add(c);
             }
         }
-        return lista;
+        java.util.Comparator<Candidato> porNome = java.util.Comparator.comparing(
+                c -> Texto.normalizar(c.getNomeExibicao()));
+        List<String> ordemExp = List.of("MANDATO_ATUAL", "JA_ELEITO", "JA_CONCORREU", "NOVO");
+        switch (p.getOrDefault("ordem", "nome")) {
+            case "numero":
+                filtrados.sort(java.util.Comparator.comparing((Candidato c) -> String.valueOf(c.getNumero()).length())
+                        .thenComparing(c -> String.valueOf(c.getNumero())));
+                break;
+            case "partido":
+                filtrados.sort(java.util.Comparator.comparing((Candidato c) -> String.valueOf(c.getPartido()))
+                        .thenComparing(porNome));
+                break;
+            case "experiencia":
+                filtrados.sort(java.util.Comparator.comparing((Candidato c) -> ordemExp.indexOf(expDe.get(c.getSq())))
+                        .thenComparing(porNome));
+                break;
+            default:
+                filtrados.sort(porNome);
+        }
+        int porPagina = Math.max(1, Math.min(200, inteiro(p.get("porPagina"), 48)));
+        int pagina = Math.max(1, inteiro(p.get("pagina"), 1));
+        int inicio = (pagina - 1) * porPagina;
+        List<Object> itens = new ArrayList<>();
+        for (int i = inicio; i < Math.min(filtrados.size(), inicio + porPagina); i++) {
+            itens.add(resumoCandidato(filtrados.get(i)));
+        }
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("total", filtrados.size());
+        r.put("contagem", contagem);
+        r.put("pagina", pagina);
+        r.put("temMais", inicio + porPagina < filtrados.size());
+        r.put("itens", itens);
+        return r;
+    }
+
+    /** Busca rápida por nome, nome de urna ou número (para a caixa de busca e a comparação). */
+    public synchronized List<Object> busca(String texto, String sigla) throws DadosException {
+        exigirBase();
+        String termo = Texto.normalizar(texto);
+        List<Object> r = new ArrayList<>();
+        if (termo.length() < 2) {
+            return r;
+        }
+        String ufPreferida = uf(sigla);
+        List<Candidato> achados = new ArrayList<>();
+        for (Candidato c : base.getCandidatos()) {
+            if (Texto.normalizar(c.getNomeExibicao() + " " + c.getNome()).contains(termo)
+                    || String.valueOf(c.getNumero()).startsWith(termo)) {
+                achados.add(c);
+            }
+        }
+        // primeiro a UF escolhida, depois cargos mais altos, depois nome
+        achados.sort(java.util.Comparator.comparing((Candidato c) -> ufPreferida != null && !ufPreferida.equals(c.getUf()))
+                .thenComparing(c -> c.getTipoCargo().getOrdem())
+                .thenComparing(c -> Texto.normalizar(c.getNomeExibicao())));
+        for (int i = 0; i < Math.min(10, achados.size()); i++) {
+            r.add(resumoCandidato(achados.get(i)));
+        }
+        return r;
     }
 
     public synchronized Map<String, Object> candidato(String sq) throws DadosException {
@@ -376,9 +459,9 @@ public class ServicoApi {
 
     // ------------------------------------------------------------------ análise de perfil
 
-    public synchronized Map<String, Object> distribuicao(String tipo, String cargo) throws DadosException {
+    public synchronized Map<String, Object> distribuicao(String tipo, String cargo, String sigla) throws DadosException {
         exigirBase();
-        List<Candidato> grupo = candidatosDo(cargo);
+        List<Candidato> grupo = candidatosDo(cargo, sigla);
         Map<String, Integer> contagem = new LinkedHashMap<>();
         Function<Candidato, String> classe;
         String titulo;
@@ -404,6 +487,10 @@ public class ServicoApi {
             case "corRaca":
                 titulo = "Cor/raça";
                 classe = c -> Texto.vazio(c.getCorRaca()) ? "Não informado" : c.getCorRaca();
+                break;
+            case "uf":
+                titulo = "Estado";
+                classe = c -> String.valueOf(c.getUf());
                 break;
             case "partido":
                 titulo = "Partido";
@@ -530,7 +617,8 @@ public class ServicoApi {
         }
     }
 
-    public synchronized Map<String, Object> correlacao(String x, String y, String cargo) throws DadosException {
+    public synchronized Map<String, Object> correlacao(String x, String y, String cargo, String sigla)
+            throws DadosException {
         exigirBase();
         Map<String, String> nomes = variaveis();
         if (!nomes.containsKey(x) || !nomes.containsKey(y)) {
@@ -539,7 +627,7 @@ public class ServicoApi {
         List<Object> pontos = new ArrayList<>();
         List<Double> xs = new ArrayList<>();
         List<Double> ys = new ArrayList<>();
-        for (Candidato c : candidatosDo(cargo)) {
+        for (Candidato c : candidatosDo(cargo, sigla)) {
             Double vx = valorVariavel(x, c);
             Double vy = valorVariavel(y, c);
             if (vx != null && vy != null) {
@@ -692,11 +780,19 @@ public class ServicoApi {
         }
     }
 
-    private List<Candidato> candidatosDo(String codigoCargo) throws DadosException {
-        Cargo cg = cargo(codigoCargo);
+    /** UF vinda da tela; null = todas. */
+    private static String uf(String sigla) {
+        return Texto.vazio(sigla) || "TODOS".equalsIgnoreCase(sigla) || "BR".equalsIgnoreCase(sigla) ? null
+                : sigla.toUpperCase();
+    }
+
+    private List<Candidato> candidatosDo(String codigoCargo, String sigla) throws DadosException {
+        ConfiguracaoRanking filtro = new ConfiguracaoRanking();
+        filtro.setCargo(cargo(codigoCargo));
+        filtro.setUf(uf(sigla));
         List<Candidato> lista = new ArrayList<>();
         for (Candidato c : base.getCandidatos()) {
-            if (cg == null || c.getTipoCargo() == cg) {
+            if (filtro.aceita(c)) {
                 lista.add(c);
             }
         }
