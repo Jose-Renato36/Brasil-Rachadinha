@@ -1,0 +1,78 @@
+<html>
+<body style="font-family: sans-serif; margin: 14px;">
+<h1>Metodologia e limites</h1>
+
+<p><b>Este sistema não diz quem é o melhor candidato.</b> Ele reúne dados públicos verificáveis, calcula
+indicadores objetivos e deixa <i>você</i> decidir o que pesa mais. O foco é a transparência do método,
+não um veredito.</p>
+
+<h2>Fontes</h2>
+<ul>
+  <li><b>TSE</b> (Portal de Dados Abertos): candidaturas (<code>consulta_cand</code>) e bens declarados
+      (<code>bem_candidato</code>) da eleição atual e da anterior.</li>
+  <li><b>Câmara dos Deputados</b> (Dados Abertos): deputados, votações e votos nominais do Plenário,
+      proposições e autores, e a Cota para Exercício da Atividade Parlamentar (CEAP).</li>
+</ul>
+<p>Os arquivos são baixados uma vez e processados para arquivos locais (cache), filtrados pela UF escolhida.</p>
+
+<h2>Indicadores</h2>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>Indicador</th><th>Cálculo</th><th>Sentido padrão</th></tr>
+<tr><td>Assiduidade</td><td>votações nominais do Plenário com voto registrado ÷ votações ocorridas entre o
+  primeiro e o último voto do deputado</td><td>maior é melhor</td></tr>
+<tr><td>Gasto da cota</td><td>z-score do gasto médio mensal (total ÷ meses com despesa) em relação aos
+  deputados da mesma UF. z = (x − média) ÷ desvio-padrão</td><td>menor é melhor</td></tr>
+<tr><td>Produção legislativa</td><td>número de proposições (PL, PLP, PEC, PDL, PRC) em que é autor proponente;
+  as aprovadas aparecem no perfil</td><td>maior é melhor</td></tr>
+<tr><td>Variação de patrimônio</td><td>(bens atuais − bens da eleição anterior) ÷ bens da eleição anterior</td>
+  <td>menor é melhor</td></tr>
+<tr><td>Alinhamento por pauta</td><td>% dos votos Sim/Não do deputado iguais à posição que <i>você</i> marcou</td>
+  <td>maior é melhor</td></tr>
+<tr><td>Elegibilidade</td><td>situação da candidatura no TSE. <b>É filtro, não nota.</b></td><td>—</td></tr>
+</table>
+<p>Qualquer sentido pode ser invertido na tela de ranking (por exemplo, se para você gastar a cota
+é sinal de atuação e não de desperdício).</p>
+<p><b>"Aprovada"</b> = proposição transformada em norma jurídica ou aprovada na Câmara e enviada ao Senado,
+à sanção ou à promulgação, conforme a última situação informada pela Câmara.</p>
+
+<h2>Ranking</h2>
+<ol>
+  <li><b>Normalização min-max:</b> cada indicador vira uma nota de 0 (pior) a 1 (melhor) entre os candidatos que
+      têm dados: nota = (x − mín) ÷ (máx − mín), invertida quando "menor é melhor".</li>
+  <li><b>Soma ponderada:</b> pontuação = Σ(peso × nota) ÷ Σ(pesos), só com os indicadores em que o candidato
+      tem dados. A coluna <i>cobertura</i> mostra quantos entraram.</li>
+  <li><b>TOPSIS</b> (opcional): distância relativa à solução ideal e à anti-ideal. Só classifica quem tem
+      dados em todos os indicadores com peso.</li>
+</ol>
+<p>A pontuação é <b>relativa</b> aos candidatos da lista: 100 não significa "perfeito", só "o melhor desta
+lista, com estes pesos".</p>
+
+<h2>"Sem dados" não é zero</h2>
+<p>Quando um dado não existe, o indicador aparece como <i>sem dados</i> e fica fora da conta, em vez de virar
+zero. Zero significaria desempenho ruim, e ausência de informação não é desempenho.</p>
+
+<h2>Limites conhecidos</h2>
+<ul>
+  <li><b>Viés contra estreantes:</b> quem nunca teve mandato não tem assiduidade, cota, produção nem votos.
+      A soma ponderada ignora esses indicadores para essas pessoas, então um estreante pode ser pontuado só
+      pela variação de patrimônio e ficar à frente de quem é avaliado em quatro indicadores. A opção
+      <i>cobertura mínima</i> na tela de ranking deixa você decidir: com 1, todos entram; com 2 ou mais, só
+      quem tem dados suficientes é pontuado (e os estreantes saem da lista). Nenhuma das duas escolhas é neutra.</li>
+  <li><b>Dados autodeclarados:</b> bens, escolaridade, ocupação, gênero e cor/raça são declarados pelo próprio
+      candidato ao TSE e não são verificados aqui. Bens estão a valor histórico, sem correção pela inflação.</li>
+  <li><b>Quantidade não é qualidade:</b> muitas proposições não significam boas proposições, e presença não
+      significa bom voto.</li>
+  <li><b>Assiduidade aproximada:</b> o período de exercício é estimado pelo primeiro e último voto; licenças no
+      meio do mandato contam como ausência. Faltas justificadas não são distinguidas.</li>
+  <li><b>Cruzamento TSE × Câmara:</b> feito por CPF quando disponível, depois por nome civil + data de
+      nascimento. Vínculos só por nome aparecem com ⚠ e vão para <code>vinculos_para_conferir.csv</code>;
+      correções manuais podem ser feitas em <code>dados/vinculos_manuais.csv</code>.</li>
+  <li><b>Correlação não é causalidade</b>, e com poucos candidatos por UF o coeficiente é instável.</li>
+</ul>
+
+<h2>Variáveis sensíveis</h2>
+<p>Gênero e cor/raça aparecem somente na <i>Análise de perfil</i>, para descrever o grupo de candidatos.
+Elas <b>nunca</b> entram na pontuação. O CPF é usado só durante o cruzamento e não é gravado nos arquivos
+processados.</p>
+</body>
+</html>
