@@ -11,6 +11,7 @@ e mostra, em linguagem simples, se a pessoa tem preparo para o cargo, o que já 
 ![Maven](https://img.shields.io/badge/build-Maven-1f5fae)
 ![Sem dependências](https://img.shields.io/badge/depend%C3%AAncias%20em%20execu%C3%A7%C3%A3o-nenhuma-1b7f4b)
 ![Testes](https://img.shields.io/badge/testes-70%20passando-1b7f4b)
+![Licença](https://img.shields.io/badge/licen%C3%A7a-somente%20visualiza%C3%A7%C3%A3o-5d5c57)
 ![Dados abertos](https://img.shields.io/badge/dados-TSE%20%C2%B7%20C%C3%A2mara%20%C2%B7%20Senado%20%C2%B7%20TCU%20%C2%B7%20CGU%20%C2%B7%20IBGE%20%C2%B7%20INEP%20%C2%B7%20Tesouro%20%C2%B7%20BCB-5d5c57)
 
 <img src="docs/imagens/inicio.png" alt="Página inicial: busca por nome ou número, escolha do estado e do cargo" width="820">
@@ -221,12 +222,11 @@ verba do Senado, gastos e votos) e o "Em resumo". Também testam o servidor web 
 - O "antes e depois" não inclui saúde nem os mínimos constitucionais de saúde e educação: o Tesouro não publica
   esses anexos pela API. O PIB dos municípios sai com cerca de 2 anos de atraso.
 
-## Contribuindo
+## Uso e licença
 
-Sugestões e correções são bem-vindas, principalmente:
+Este repositório é **público apenas para visualização**: o código pode ser lido e consultado aqui, mas não pode
+ser copiado, modificado nem reutilizado sem autorização do autor. **Não são aceitas contribuições** (pull requests).
+Detalhes em [LICENSE](LICENSE).
 
-- **Mudança de formato** em algum arquivo público (abra uma issue com o nome do arquivo e a mensagem da coleta).
-- **Vínculo errado** entre pessoas: o arquivo `dados/vinculos_manuais.csv` (`sq;idDeputado`) corrige casos pontuais.
-- Novas fontes **oficiais e abertas** que ajudem o eleitor a decidir. Veja em [docs/FONTES.md](docs/FONTES.md) as que já foram avaliadas.
-
-Antes de abrir um pull request, rode `mvn test`.
+Os dados vêm de fontes públicas oficiais e continuam sujeitos às regras de uso de cada órgão
+(veja [docs/FONTES.md](docs/FONTES.md)).
