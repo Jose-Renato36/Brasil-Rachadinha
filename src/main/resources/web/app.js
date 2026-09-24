@@ -244,8 +244,8 @@ async function telaInicio() {
     <section class="hero">
       <p class="sobretitulo">Eleições ${e.anoEleicao}${uf ? ' · ' + esc(nomeUf(uf)) : ''}</p>
       <h1>Conheça quem pede o seu voto antes de decidir.</h1>
-      <p>Quem já foi político, o que fez, quando e onde. Quem está estreando. Tudo com dados públicos do TSE,
-        da Câmara, do Senado e do TCU, e com a fonte de cada número. <strong>Você decide o que é importante.</strong></p>
+      <p>Se tem preparo para o cargo, quem já foi político, o que fez, quando e onde, e quem está estreando.
+        Tudo com dados públicos oficiais (TSE, Câmara, Senado, TCU, CGU, Receita e Tesouro) e a fonte de cada número. <strong>Você decide o que é importante.</strong></p>
       <div class="busca">
         <input type="search" id="busca-inicio" placeholder="Procure pelo nome ou pelo número na urna" aria-label="Procurar candidato" autocomplete="off">
         <div class="sugestoes" id="sugestoes" hidden></div>
@@ -1196,7 +1196,7 @@ async function telaDados() {
       </section>
       <section class="cartao">
         <h2>Coletar dados reais</h2>
-        <p class="fraco">Baixa os arquivos públicos do TSE, da Câmara, do Senado e do TCU. O Brasil inteiro soma
+        <p class="fraco">Baixa os arquivos públicos do TSE, da Câmara, do Senado, do TCU, do Portal da Transparência e do Tesouro. O Brasil inteiro soma
           <strong>alguns GB</strong> e a primeira coleta pode levar mais de uma hora; depois fica guardado no computador.
           Um estado só é mais rápido.</p>
         <div class="grade grade-2">
