@@ -29,7 +29,12 @@ public abstract class MetodoRanking {
 
     public List<ItemRanking> classificar(MatrizIndicadores matriz, ConfiguracaoRanking config) {
         List<Candidato> candidatos = new ArrayList<>();
+        java.util.Set<String> doCargo = new java.util.HashSet<>();
         for (Candidato c : matriz.getBase().getCandidatos()) {
+            if (config.getCargo() != null && c.getTipoCargo() != config.getCargo()) {
+                continue;
+            }
+            doCargo.add(c.getSq());
             if (!config.isOcultarInaptos() || !c.isInapta()) {
                 candidatos.add(c);
             }
@@ -39,8 +44,15 @@ public abstract class MetodoRanking {
         for (Indicador ind : matriz.getIndicadores()) {
             if (config.getPeso(ind.getCodigo()) > 0) {
                 ativos.add(ind);
-                notas.put(ind.getCodigo(),
-                        Normalizador.minMax(matriz.getResultados(ind.getCodigo()), config.sentidoEfetivo(ind)));
+                // normaliza só entre as candidaturas do mesmo cargo
+                Map<String, br.unit.eleicao.indicador.ResultadoIndicador> resultados = new HashMap<>();
+                for (Map.Entry<String, br.unit.eleicao.indicador.ResultadoIndicador> e
+                        : matriz.getResultados(ind.getCodigo()).entrySet()) {
+                    if (doCargo.contains(e.getKey())) {
+                        resultados.put(e.getKey(), e.getValue());
+                    }
+                }
+                notas.put(ind.getCodigo(), Normalizador.minMax(resultados, config.sentidoEfetivo(ind)));
             }
         }
         List<ItemRanking> itens = pontuar(candidatos, notas, ativos, config);

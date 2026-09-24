@@ -80,6 +80,33 @@ public class LeitorCsv implements AutoCloseable {
         return -1;
     }
 
+    /**
+     * Índice da primeira coluna cujo nome (sem acentos) contém todos os trechos, ou -1.
+     * Útil para arquivos cujo cabeçalho exato não está documentado.
+     */
+    public int indiceContendo(String... trechos) {
+        int melhor = -1;
+        for (Map.Entry<String, Integer> e : cabecalho.entrySet()) {
+            String nome = Texto.normalizar(e.getKey());
+            boolean todos = true;
+            for (String t : trechos) {
+                if (!nome.contains(Texto.normalizar(t))) {
+                    todos = false;
+                    break;
+                }
+            }
+            if (todos && (melhor < 0 || e.getValue() < melhor)) {
+                melhor = e.getValue();
+            }
+        }
+        return melhor;
+    }
+
+    /** Nomes das colunas, para mensagens de erro. */
+    public String descreverCabecalho() {
+        return String.join(", ", cabecalho.keySet());
+    }
+
     /** Lê o próximo registro; devolve null no fim do arquivo. */
     public String[] proximaLinha() throws ArquivoInvalidoException {
         try {

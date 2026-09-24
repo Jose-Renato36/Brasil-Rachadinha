@@ -84,6 +84,58 @@ gerais e municipais), no mesmo layout de 50 colunas.
 - Limite: só o mesmo estado; quem concorreu em outra UF não aparece.
 - É informação de contexto (quem tem mandato hoje, quem já foi eleito), **nunca entra na nota**.
 
+## Todos os cargos da eleição
+
+`consulta_cand` traz, por UF, **todos os cargos** (governador e vice, senador e suplentes, deputados federais
+e estaduais/distritais). O sistema lê todos; presidente fica de fora porque não está nos arquivos por UF.
+
+## O que a pessoa fez nos mandatos
+
+| Mandato anterior | Fonte | O que mostramos |
+|---|---|---|
+| Deputado(a) federal atual (2023–hoje) | Câmara, arquivos em lote | presença, projetos, aprovados, verba de gabinete |
+| Deputado(a) federal anterior (2019–2023) | Câmara, **mesmos arquivos de 2019 a 2022** (`deputado_idLegislatura = 56`) | o mesmo resumo; ligação só por CPF ou nome + nascimento |
+| Senador(a) em exercício | API do Senado (`legis.senado.leg.br/dadosabertos/senador/...`, XML) | votos nominais e matérias de autoria |
+| Prefeito(a), governador(a), vereador(a), deputado(a) estadual | — | período e local do mandato (TSE) e aviso de que não há base nacional de atuação |
+| Qualquer gestor | TCU – contas julgadas irregulares | processos com decisão definitiva, ligados pelo CPF |
+
+### API do Senado
+
+Endereços e nomes de campos conferidos no código da biblioteca
+[DadosAbertosBrasil](https://pypi.org/project/DadosAbertosBrasil/), que usa a mesma API:
+
+- `senador/lista/atual?uf=XX` → `Parlamentar` › `IdentificacaoParlamentar` (`CodigoParlamentar`,
+  `NomeCompletoParlamentar`, `UrlPaginaParlamentar`…)
+- `senador/{codigo}` → `DadosBasicosParlamentar/DataNascimento` (usada para confirmar a identidade)
+- `senador/{codigo}/votacoes` → `Votacao` (`SiglaDescricaoVoto`, `SessaoPlenaria/DataSessao`)
+- `senador/{codigo}/autorias` → `Autoria` (`IndicadorAutorPrincipal`, `Materia/DescricaoIdentificacao`, `Ementa`, `Data`)
+
+A ligação exige **nome completo + data de nascimento** iguais aos do TSE. "Votou" = Sim, Não ou
+Abstenção; os demais registros (licenças, missões, ausências) aparecem só no total. A API de autorias não
+informa se a matéria foi aprovada, por isso o sistema não mostra "aprovados" para o Senado.
+
+### TCU – contas julgadas irregulares
+
+`https://sites.tcu.gov.br/dados-abertos/inidoneos-irregulares/arquivos/resp-contas-julgadas-irreg-implicacao-eleitoral.csv`
+
+Lista que o TCU envia ao TSE para a Lei da Ficha Limpa (contas julgadas irregulares nos últimos 8 anos,
+com decisão definitiva). Traz nome, CPF, UF, município, processo, deliberação e data do trânsito em julgado.
+O cabeçalho exato não está documentado publicamente, então as colunas são achadas por trechos do nome
+e o separador e a codificação são detectados.
+
+- Liga **só pelo CPF**: completo, ou mascarado com pelo menos 6 dígitos iguais **e** o mesmo nome completo.
+  Nome sozinho nunca basta: é uma informação séria e homônimos são comuns.
+- "Não consta" só aparece quando a lista foi de fato lida.
+- Estar na lista não significa inelegibilidade automática: quem decide é a Justiça Eleitoral.
+
+### Por que não há "avaliação" de prefeitos e governadores
+
+Não existe base nacional padronizada que diga como foi uma gestão municipal ou estadual. Há dados
+fiscais (SICONFI/Tesouro) e indicadores setoriais (IDEB, saúde), mas transformá-los em "desempenho do
+gestor" exige escolhas de método fortes e ligações por código de município que não temos no TSE. Por
+isso o sistema mostra onde e quando a pessoa governou, se há contas irregulares no TCU, e indica os
+Tribunais de Contas e portais de transparência como próximo passo.
+
 ## Fontes avaliadas para próximos passos
 
 | Fonte | O que traria | Situação |

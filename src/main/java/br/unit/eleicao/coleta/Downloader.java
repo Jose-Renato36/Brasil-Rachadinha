@@ -32,7 +32,12 @@ public class Downloader {
     }
 
     public Path baixar(String url, Path pasta, boolean forcar) throws ColetaException {
-        Path destino = pasta.resolve(FontesDados.nomeLocal(url));
+        return baixar(url, pasta.resolve(FontesDados.nomeLocal(url)), forcar, "application/json, */*;q=0.8");
+    }
+
+    /** Baixa para um arquivo com nome escolhido, pedindo o formato indicado no cabeçalho Accept. */
+    public Path baixar(String url, Path destino, boolean forcar, String accept) throws ColetaException {
+        Path pasta = destino.getParent();
         try {
             if (!forcar && Files.exists(destino) && Files.size(destino) > 0) {
                 log.accept("  (cache) " + destino.getFileName());
@@ -46,7 +51,7 @@ public class Downloader {
         HttpRequest requisicao = HttpRequest.newBuilder(URI.create(url))
                 // o CDN do TSE recusa (403) alguns clientes automáticos; um User-Agent de navegador evita isso
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) decisao-eleitoral/0.2")
-                .header("Accept", "application/json, */*;q=0.8")
+                .header("Accept", accept)
                 .timeout(Duration.ofMinutes(20))
                 .GET().build();
         ColetaException ultimaFalha = null;

@@ -5,6 +5,8 @@ import br.unit.eleicao.excecao.DadosException;
 import br.unit.eleicao.modelo.BaseDados;
 import br.unit.eleicao.modelo.Candidato;
 import br.unit.eleicao.modelo.CandidaturaAnterior;
+import br.unit.eleicao.modelo.ContaIrregular;
+import br.unit.eleicao.modelo.ResumoMandato;
 import br.unit.eleicao.modelo.Deputado;
 import br.unit.eleicao.modelo.Despesa;
 import br.unit.eleicao.modelo.GrauInstrucao;
@@ -44,6 +46,9 @@ public class RepositorioArquivos {
     public static final String POSICOES = "posicoes.csv";
     public static final String EXERCICIOS = "exercicios.csv";
     public static final String TRAJETORIA = "trajetoria.csv";
+    public static final String ATUACAO = "atuacao.csv";
+    public static final String CONTAS = "contas_irregulares.csv";
+    private static final String SEPARADOR_DESTAQUES = " || ";
 
     // ------------------------------------------------------------------ leitura
 
@@ -57,6 +62,8 @@ public class RepositorioArquivos {
         lerExercicios(base, dir.resolve(EXERCICIOS));
         lerCandidatos(base, dir.resolve(CANDIDATOS));
         lerTrajetoria(base, dir.resolve(TRAJETORIA));
+        lerAtuacao(base, dir.resolve(ATUACAO));
+        lerContas(base, dir.resolve(CONTAS));
         lerVotacoes(base, dir.resolve(VOTACOES));
         lerVotos(base, dir.resolve(VOTOS));
         lerDespesas(base, dir.resolve(DESPESAS));
@@ -83,6 +90,7 @@ public class RepositorioArquivos {
         m.setDemonstracao(Boolean.parseBoolean(p.getProperty("demonstracao", "false")));
         m.setDescricao(p.getProperty("descricao", ""));
         m.setGeradoEm(p.getProperty("geradoEm", ""));
+        m.setTcuVerificado(Boolean.parseBoolean(p.getProperty("tcuVerificado", "false")));
         return m;
     }
 
@@ -181,6 +189,69 @@ public class RepositorioArquivos {
                 if (c != null && ano != null) {
                     c.adicionarCandidaturaAnterior(new CandidaturaAnterior(ano, LeitorCsv.campo(l, iCargo),
                             LeitorCsv.campo(l, iLocal), LeitorCsv.campo(l, iPartido), LeitorCsv.campo(l, iResultado)));
+                }
+            }
+        }
+    }
+
+    private void lerAtuacao(BaseDados base, Path arquivo) throws ArquivoInvalidoException {
+        if (!Files.exists(arquivo)) {
+            return;
+        }
+        try (LeitorCsv csv = new LeitorCsv(arquivo, StandardCharsets.UTF_8)) {
+            int iSq = csv.indice("sq");
+            int iCasa = csv.indice("casa");
+            int iCargo = csv.indice("cargo");
+            int iPeriodo = csv.indice("periodo");
+            int iUrl = csv.indice("url");
+            int iPres = csv.indice("presenca");
+            int iDetPres = csv.indice("detalhePresenca");
+            int iProj = csv.indice("projetos");
+            int iAprov = csv.indice("aprovados");
+            int iObs = csv.indice("observacaoProjetos");
+            int iGasto = csv.indice("gastoMensal");
+            int iDest = csv.indice("destaques");
+            String[] l;
+            while ((l = csv.proximaLinha()) != null) {
+                Candidato c = base.buscarCandidato(LeitorCsv.campo(l, iSq));
+                if (c == null) {
+                    continue;
+                }
+                ResumoMandato r = new ResumoMandato(LeitorCsv.campo(l, iCasa), LeitorCsv.campo(l, iCargo),
+                        LeitorCsv.campo(l, iPeriodo), LeitorCsv.campo(l, iUrl));
+                r.setPresenca(Texto.parseDecimal(LeitorCsv.campo(l, iPres)), LeitorCsv.campo(l, iDetPres));
+                Integer proj = Texto.parseInteiro(LeitorCsv.campo(l, iProj));
+                Integer aprov = Texto.parseInteiro(LeitorCsv.campo(l, iAprov));
+                r.setProjetos(proj == null ? 0 : proj, aprov == null ? 0 : aprov);
+                r.setObservacaoProjetos(LeitorCsv.campo(l, iObs));
+                r.setGastoMensal(Texto.parseDecimal(LeitorCsv.campo(l, iGasto)));
+                for (String d : LeitorCsv.campo(l, iDest).split(java.util.regex.Pattern.quote(SEPARADOR_DESTAQUES))) {
+                    if (!d.isBlank()) {
+                        r.adicionarDestaque(d);
+                    }
+                }
+                c.adicionarAtuacao(r);
+            }
+        }
+    }
+
+    private void lerContas(BaseDados base, Path arquivo) throws ArquivoInvalidoException {
+        if (!Files.exists(arquivo)) {
+            return;
+        }
+        try (LeitorCsv csv = new LeitorCsv(arquivo, StandardCharsets.UTF_8)) {
+            int iSq = csv.indice("sq");
+            int iProc = csv.indice("processo");
+            int iDelib = csv.indice("deliberacao");
+            int iTrans = csv.indice("transito");
+            int iLocal = csv.indice("local");
+            int iCrit = csv.indice("criterio");
+            String[] l;
+            while ((l = csv.proximaLinha()) != null) {
+                Candidato c = base.buscarCandidato(LeitorCsv.campo(l, iSq));
+                if (c != null) {
+                    c.adicionarContaIrregular(new ContaIrregular(LeitorCsv.campo(l, iProc), LeitorCsv.campo(l, iDelib),
+                            LeitorCsv.campo(l, iTrans), LeitorCsv.campo(l, iLocal), LeitorCsv.campo(l, iCrit)));
                 }
             }
         }
@@ -366,6 +437,25 @@ public class RepositorioArquivos {
                 }
             }
         }
+        try (EscritorCsv csv = new EscritorCsv(dir.resolve(ATUACAO), "sq", "casa", "cargo", "periodo", "url",
+                "presenca", "detalhePresenca", "projetos", "aprovados", "observacaoProjetos", "gastoMensal", "destaques")) {
+            for (Candidato c : base.getCandidatos()) {
+                for (ResumoMandato r : c.getAtuacao()) {
+                    csv.escrever(c.getSq(), r.getCasa(), r.getCargo(), r.getPeriodo(), r.getUrl(), r.getPresenca(),
+                            r.getDetalhePresenca(), r.getProjetos(), r.getAprovados(), r.getObservacaoProjetos(),
+                            r.getGastoMensal(), String.join(SEPARADOR_DESTAQUES, r.getDestaques()));
+                }
+            }
+        }
+        try (EscritorCsv csv = new EscritorCsv(dir.resolve(CONTAS), "sq", "processo", "deliberacao", "transito",
+                "local", "criterio")) {
+            for (Candidato c : base.getCandidatos()) {
+                for (ContaIrregular ci : c.getContasIrregulares()) {
+                    csv.escrever(c.getSq(), ci.getProcesso(), ci.getDeliberacao(), ci.getDataTransito(), ci.getLocal(),
+                            ci.getCriterio());
+                }
+            }
+        }
         try (EscritorCsv csv = new EscritorCsv(dir.resolve(VOTACOES), "id", "data", "descricao", "proposicao",
                 "ementa")) {
             for (Votacao v : base.getVotacoesOrdenadas()) {
@@ -417,6 +507,7 @@ public class RepositorioArquivos {
         p.setProperty("demonstracao", String.valueOf(m.isDemonstracao()));
         p.setProperty("descricao", m.getDescricao() == null ? "" : m.getDescricao());
         p.setProperty("geradoEm", m.getGeradoEm() == null ? "" : m.getGeradoEm());
+        p.setProperty("tcuVerificado", String.valueOf(m.isTcuVerificado()));
         try {
             Files.createDirectories(arquivo.getParent());
             try (Writer w = Files.newBufferedWriter(arquivo, StandardCharsets.UTF_8)) {

@@ -23,6 +23,10 @@
   --grade: #e4e3df;
   --botao: #1f5fae;
   --botao-hover: #174a88;
+  --exp-atual: #1f5fae; --exp-atual-fundo: #e3edf9;
+  --exp-eleito: #0f7a55; --exp-eleito-fundo: #dcf3ea;
+  --exp-concorreu: #5d5c57; --exp-concorreu-fundo: #ecebe6;
+  --exp-novo: #4a3aa7; --exp-novo-fundo: #ebe8fb;
   --eixo: #a8a7a1;
   color-scheme: light;
 }
@@ -35,6 +39,10 @@
     --serie-1: #3987e5; --ok: #4cc38a; --ok-fundo: #173327; --alerta: #f0c060; --alerta-fundo: #3a2f12;
     --perigo: #f07a72; --perigo-fundo: #3d1b19; --grade: #33363b; --eixo: #6b6e73;
     --botao: #2d6cc0; --botao-hover: #3a7bd0;
+    --exp-atual: #a9ccf5; --exp-atual-fundo: #1d3350;
+    --exp-eleito: #7fd9b3; --exp-eleito-fundo: #15352a;
+    --exp-concorreu: #c3c2b7; --exp-concorreu-fundo: #2a2d31;
+    --exp-novo: #b9b0f5; --exp-novo-fundo: #2a2547;
     color-scheme: dark;
   }
 }
@@ -45,6 +53,10 @@
   --serie-1: #3987e5; --ok: #4cc38a; --ok-fundo: #173327; --alerta: #f0c060; --alerta-fundo: #3a2f12;
   --perigo: #f07a72; --perigo-fundo: #3d1b19; --grade: #33363b; --eixo: #6b6e73;
     --botao: #2d6cc0; --botao-hover: #3a7bd0;
+    --exp-atual: #a9ccf5; --exp-atual-fundo: #1d3350;
+    --exp-eleito: #7fd9b3; --exp-eleito-fundo: #15352a;
+    --exp-concorreu: #c3c2b7; --exp-concorreu-fundo: #2a2d31;
+    --exp-novo: #b9b0f5; --exp-novo-fundo: #2a2547;
   color-scheme: dark;
 }
 
@@ -77,11 +89,11 @@ small, .fraco { color: var(--texto-2); }
 .so-celular { display: none; }
 @media (max-width: 900px) { .so-celular { display: inline; } h2.so-celular { display: block; margin-top: 8px; } }
 .menu { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
-.menu a { text-decoration: none; color: var(--texto-2); padding: 8px 12px; border-radius: 999px; font-size: .93rem; }
+.menu a { text-decoration: none; color: var(--texto-2); padding: 8px 11px; border-radius: 999px; font-size: .9rem; white-space: nowrap; }
 .menu a:hover { background: var(--superficie-2); color: var(--texto); }
 .menu a.ativo { background: var(--primaria-clara); color: var(--primaria-escura); font-weight: 600; }
 .menu-botao { display: none; margin-left: auto; font: inherit; font-weight: 600; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--borda); background: var(--superficie); cursor: pointer; min-height: 40px; }
-@media (max-width: 860px) {
+@media (max-width: 1120px) {
   .menu-botao { display: inline-flex; }
   .menu { display: none; width: 100%; flex-direction: column; }
   .menu.aberto { display: flex; }
@@ -225,3 +237,97 @@ details summary { cursor: pointer; font-weight: 600; color: var(--primaria); }
 .linha-tempo .marco { display: grid; grid-template-columns: 64px 1fr; gap: 12px; padding: 8px 0 8px 14px; position: relative; }
 .linha-tempo .marco::before { content: ""; position: absolute; left: -8px; top: 14px; width: 13px; height: 13px; border-radius: 50%; background: var(--primaria); border: 3px solid var(--superficie); }
 .linha-tempo .ano { font-weight: 800; color: var(--primaria-escura); }
+
+
+/* ---------- versão 3: cargos, cartões e detalhes ---------- */
+.sobretitulo { text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; font-weight: 700; color: var(--primaria); margin-bottom: 6px; }
+.titulo-secao { margin: 36px 0 14px; }
+.hero h1 { text-wrap: balance; }
+.avatar.pequeno { width: 40px; height: 40px; font-size: .9rem; }
+.urna { text-align: center; }
+
+.grade-cargos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.bloco-cargo { display: flex; flex-direction: column; gap: 2px; padding: 18px 20px; border-radius: var(--raio); background: var(--superficie);
+  border: 1px solid var(--borda); text-decoration: none; color: var(--texto); box-shadow: var(--sombra); transition: border-color .15s, transform .15s; }
+.bloco-cargo:hover { border-color: var(--primaria); transform: translateY(-2px); }
+.bloco-cargo strong { font-size: 1.2rem; }
+.bloco-orgao { font-size: .8rem; color: var(--texto-2); }
+.bloco-total { font-size: .9rem; color: var(--primaria); font-weight: 600; margin-top: 6px; }
+
+.abas { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin: 16px 0 12px; border-bottom: 1px solid var(--borda); }
+.aba { white-space: nowrap; text-decoration: none; color: var(--texto-2); padding: 8px 14px; border-radius: 10px 10px 0 0; font-weight: 600; font-size: .92rem; }
+.aba span { font-weight: 400; color: var(--texto-3); margin-left: 4px; }
+.aba.ativa { color: var(--primaria-escura); background: var(--primaria-clara); }
+.filtros { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.filtros .chips { margin: 0; }
+.filtros-linha { display: grid; grid-template-columns: 1fr 240px; gap: 10px; }
+@media (max-width: 640px) { .filtros-linha { grid-template-columns: 1fr; } }
+.chips button span { opacity: .75; margin-left: 2px; }
+.linha-cargo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.linha-cargo select { max-width: 320px; }
+
+.selo { display: inline-block; font-size: .78rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.exp-MANDATO_ATUAL { color: var(--exp-atual); background: var(--exp-atual-fundo); }
+.exp-JA_ELEITO { color: var(--exp-eleito); background: var(--exp-eleito-fundo); }
+.exp-JA_CONCORREU { color: var(--exp-concorreu); background: var(--exp-concorreu-fundo); }
+.exp-NOVO { color: var(--exp-novo); background: var(--exp-novo-fundo); }
+.chips button.exp-chip[aria-pressed=true] { outline: 2px solid currentColor; outline-offset: -2px; }
+.chips button.exp-chip[aria-pressed=true].exp-MANDATO_ATUAL { background: var(--exp-atual-fundo); color: var(--exp-atual); }
+.chips button.exp-chip[aria-pressed=true].exp-JA_ELEITO { background: var(--exp-eleito-fundo); color: var(--exp-eleito); }
+.chips button.exp-chip[aria-pressed=true].exp-JA_CONCORREU { background: var(--exp-concorreu-fundo); color: var(--exp-concorreu); }
+.chips button.exp-chip[aria-pressed=true].exp-NOVO { background: var(--exp-novo-fundo); color: var(--exp-novo); }
+.etiquetas { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+.grade-cartoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; align-items: start; }
+.cartao-candidato { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: var(--sombra);
+  padding: 14px; display: flex; flex-direction: column; gap: 10px; transition: border-color .15s, box-shadow .15s; }
+.cartao-candidato:hover { border-color: var(--primaria); }
+.cartao-candidato.aberto { grid-column: 1 / -1; border-color: var(--primaria); box-shadow: 0 6px 24px rgba(0,0,0,.08); }
+.cartao-candidato .cabeca { all: unset; cursor: pointer; display: grid; grid-template-columns: 60px 1fr auto; gap: 12px; align-items: center; border-radius: 10px; }
+.cartao-candidato .cabeca:focus-visible { outline: 3px solid #7fb0ec; outline-offset: 4px; }
+.identidade { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; min-width: 0; }
+.identidade .nome { font-size: 1.05rem; line-height: 1.2; }
+.linha-info { font-size: .85rem; color: var(--texto-2); }
+.numero-mini { font-weight: 800; font-size: 1.15rem; letter-spacing: .04em; background: var(--superficie-2); border-radius: 8px; padding: 4px 10px; font-variant-numeric: tabular-nums; }
+.cartao-candidato.aberto .cabeca { grid-template-columns: 80px 1fr auto; }
+.cartao-candidato.aberto .avatar { width: 80px; height: 80px; }
+.cartao-candidato.aberto .numero-mini { font-size: 1.6rem; background: var(--texto); color: var(--fundo); }
+
+.mini-linha { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); position: relative; }
+.mini-linha::before { content: ""; position: absolute; left: 12%; right: 12%; top: 6px; height: 2px; background: var(--borda); }
+.mini-linha li { display: flex; flex-direction: column; align-items: center; gap: 2px; position: relative; }
+.mini-linha .ponto { width: 14px; height: 14px; border-radius: 50%; background: var(--superficie); border: 2px solid var(--borda); }
+.mini-linha li.concorreu .ponto { border-color: var(--texto-2); }
+.mini-linha li.eleito .ponto { background: var(--exp-eleito); border-color: var(--exp-eleito); }
+.mini-linha small { font-size: .72rem; color: var(--texto-3); font-variant-numeric: tabular-nums; }
+
+.detalhe { border-top: 1px solid var(--borda); padding-top: 14px; }
+.detalhe-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px 28px; }
+.detalhe-grade h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--texto-2); margin-bottom: 10px; }
+.mandato-dados { border: 1px solid var(--borda); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.mandato-dados.sem { background: var(--superficie-2); border-style: dashed; }
+.mandato-dados p { margin: 0; font-size: .9rem; }
+.mandato-titulo { font-size: .95rem; }
+.medida { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+.medida .rotulo { font-size: .85rem; color: var(--texto-2); }
+.medidor { height: 10px; border-radius: 999px; background: var(--superficie-2); overflow: hidden; }
+.medidor span { display: block; height: 100%; background: var(--serie-1); border-radius: 999px; }
+.numeros-mandato { display: flex; gap: 18px; flex-wrap: wrap; }
+.numeros-mandato div { display: flex; flex-direction: column; }
+.numeros-mandato strong { font-size: 1.3rem; color: var(--primaria-escura); font-variant-numeric: tabular-nums; }
+.numeros-mandato span { font-size: .8rem; color: var(--texto-2); max-width: 180px; }
+.destaques { margin: 6px 0 0; padding-left: 18px; font-size: .88rem; }
+.caixa-ok { background: var(--ok-fundo); color: var(--texto); border-radius: var(--raio); padding: 10px 14px; font-size: .9rem; }
+.barra-bens { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: center; margin-bottom: 8px; }
+.barra-bens .ano { font-weight: 700; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+.barra-bens .trilho { height: 14px; background: var(--superficie-2); border-radius: 4px; overflow: hidden; }
+.barra-bens .trilho span { display: block; height: 100%; background: var(--serie-2); border-radius: 4px; }
+.barra-bens strong { font-variant-numeric: tabular-nums; }
+.ficha-dados { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: .92rem; }
+.ficha-dados dt { color: var(--texto-2); }
+.ficha-dados dd { margin: 0; }
+.acoes-detalhe { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.linha-tempo .marco.eleito::before { background: var(--exp-eleito); }
+@media (prefers-reduced-motion: reduce) { .bloco-cargo, .cartao-candidato { transition: none; } .bloco-cargo:hover { transform: none; } }
+
+.selo { white-space: normal; max-width: 100%; line-height: 1.3; }

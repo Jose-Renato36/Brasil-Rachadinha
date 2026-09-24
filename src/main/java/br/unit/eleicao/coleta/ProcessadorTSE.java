@@ -3,6 +3,7 @@ package br.unit.eleicao.coleta;
 import br.unit.eleicao.excecao.ArquivoInvalidoException;
 import br.unit.eleicao.modelo.BaseDados;
 import br.unit.eleicao.modelo.Candidato;
+import br.unit.eleicao.modelo.Cargo;
 import br.unit.eleicao.modelo.GrauInstrucao;
 import br.unit.eleicao.util.LeitorCsv;
 import br.unit.eleicao.util.Texto;
@@ -25,7 +26,6 @@ import java.util.function.Consumer;
 public class ProcessadorTSE {
 
     public static final Charset LATIN1 = Charset.forName("ISO-8859-1");
-    public static final String CARGO = "DEPUTADO FEDERAL";
 
     private final Path pasta;
     private final String uf;
@@ -97,7 +97,7 @@ public class ProcessadorTSE {
             }
             base.adicionarCandidato(c);
         }
-        log.accept("TSE: " + atuais.size() + " candidaturas a " + CARGO + " em " + uf + " (" + comAnterior
+        log.accept("TSE: " + atuais.size() + " candidaturas em " + uf + " (" + comAnterior
                 + " também concorreram em " + anoAnterior + ").");
     }
 
@@ -133,8 +133,10 @@ public class ProcessadorTSE {
                 if (!uf.equalsIgnoreCase(LeitorCsv.campo(l, iUf))) {
                     continue;
                 }
-                String cargo = Texto.normalizar(LeitorCsv.campo(l, iCargo));
-                if (somenteCargo && !CARGO.equals(cargo)) {
+                String cargo = Texto.limparTse(LeitorCsv.campo(l, iCargo));
+                Cargo tipo = Cargo.de(cargo);
+                // eleição atual: todos os cargos disputados na UF (presidente não aparece nos arquivos por UF)
+                if (somenteCargo && (tipo == Cargo.PRESIDENTE || tipo == Cargo.VICE_PRESIDENTE)) {
                     continue;
                 }
                 String sq = LeitorCsv.campo(l, iSq);

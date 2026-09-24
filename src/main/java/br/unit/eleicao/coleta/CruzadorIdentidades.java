@@ -6,6 +6,7 @@ import br.unit.eleicao.util.Texto;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -30,23 +31,60 @@ public class CruzadorIdentidades {
 
     private final List<String> paraConferir = new ArrayList<>();
 
+    /** Resultado de uma associação: id do deputado e critério usado. */
+    public static final class Vinculo {
+        private final int idDeputado;
+        private final String criterio;
+
+        Vinculo(int idDeputado, String criterio) {
+            this.idDeputado = idDeputado;
+            this.criterio = criterio;
+        }
+
+        public int getIdDeputado() {
+            return idDeputado;
+        }
+
+        public String getCriterio() {
+            return criterio;
+        }
+    }
+
+    /** Liga as candidaturas ao mandato atual na Câmara (grava o vínculo no candidato). */
     public void cruzar(List<Candidato> candidatos, Collection<Deputado> deputados, Map<String, String> cpfPorSq,
                        Map<Integer, String> cpfPorDeputado, Map<String, Integer> manuais) {
+        Map<String, Vinculo> achados = associar(candidatos, deputados, cpfPorSq, cpfPorDeputado, manuais);
+        for (Candidato c : candidatos) {
+            if (manuais.containsKey(c.getSq()) && manuais.get(c.getSq()) == SEM_VINCULO) {
+                c.vincularDeputado(null, MANUAL);
+            }
+            Vinculo v = achados.get(c.getSq());
+            if (v != null) {
+                c.vincularDeputado(v.idDeputado, v.criterio);
+            }
+        }
+    }
+
+    /**
+     * Encontra o deputado de cada candidatura, do critério mais seguro ao menos seguro, sem alterar
+     * os candidatos (usado também para legislaturas anteriores).
+     */
+    public Map<String, Vinculo> associar(List<Candidato> candidatos, Collection<Deputado> deputados,
+                                         Map<String, String> cpfPorSq, Map<Integer, String> cpfPorDeputado,
+                                         Map<String, Integer> manuais) {
+        Map<String, Vinculo> resultado = new HashMap<>();
         Set<Integer> usados = new HashSet<>();
-        // 1ª passada: manuais; depois critérios automáticos em ordem de confiança
         for (Candidato c : candidatos) {
             Integer manual = manuais.get(c.getSq());
-            if (manual != null) {
-                c.vincularDeputado(manual == SEM_VINCULO ? null : manual, MANUAL);
-                if (manual != SEM_VINCULO) {
-                    usados.add(manual);
-                }
+            if (manual != null && manual != SEM_VINCULO) {
+                resultado.put(c.getSq(), new Vinculo(manual, MANUAL));
+                usados.add(manual);
             }
         }
         String[] criterios = {CPF, NOME_NASCIMENTO, NOME_CIVIL, NOME_URNA};
         for (String criterio : criterios) {
             for (Candidato c : candidatos) {
-                if (c.getCriterioVinculo() != null || manuais.containsKey(c.getSq())) {
+                if (resultado.containsKey(c.getSq()) || manuais.containsKey(c.getSq())) {
                     continue;
                 }
                 List<Deputado> achados = new ArrayList<>();
@@ -57,9 +95,9 @@ public class CruzadorIdentidades {
                 }
                 if (achados.size() == 1) {
                     Deputado d = achados.get(0);
-                    c.vincularDeputado(d.getId(), criterio);
+                    resultado.put(c.getSq(), new Vinculo(d.getId(), criterio));
                     usados.add(d.getId());
-                    if (c.isVinculoDuvidoso()) {
+                    if (criterio.contains("CONFERIR")) {
                         paraConferir.add(c.getSq() + ";" + c.getNomeExibicao() + ";" + d.getId() + ";"
                                 + d.getNomeExibicao() + ";" + criterio);
                     }
@@ -69,6 +107,7 @@ public class CruzadorIdentidades {
                 }
             }
         }
+        return resultado;
     }
 
     private static boolean combina(String criterio, Candidato c, Deputado d, Map<String, String> cpfPorSq,

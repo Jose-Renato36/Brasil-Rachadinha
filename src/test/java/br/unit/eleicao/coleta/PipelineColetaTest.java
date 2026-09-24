@@ -127,11 +127,47 @@ class PipelineColetaTest {
                 "\"5003\";\"\";\"PL\";\"12\";\"2023\";\"Coautor não proponente\";\"Aguardando Parecer\"",
                 "\"5004\";\"\";\"REQ\";\"13\";\"2023\";\"Requerimento (tipo ignorado)\";\"Aprovado\"");
 
+        // Senado (cache offline no formato XML da API)
+        Path senado = brutos.resolve("senado");
+        Files.createDirectories(senado);
+        Files.writeString(senado.resolve("lista-ZZ.xml"), "<ListaParlamentarEmExercicio><Parlamentares><Parlamentar>"
+                + "<IdentificacaoParlamentar><CodigoParlamentar>5000</CodigoParlamentar><NomeParlamentar>Outro</NomeParlamentar>"
+                + "<NomeCompletoParlamentar>Outro Cargo</NomeCompletoParlamentar><UrlPaginaParlamentar>http://senado/5000"
+                + "</UrlPaginaParlamentar></IdentificacaoParlamentar><Mandato><UfParlamentar>ZZ</UfParlamentar></Mandato>"
+                + "</Parlamentar></Parlamentares></ListaParlamentarEmExercicio>");
+        Files.writeString(senado.resolve("5000.xml"), "<DetalheParlamentar><Parlamentar><DadosBasicosParlamentar>"
+                + "<DataNascimento>1960-01-01</DataNascimento></DadosBasicosParlamentar></Parlamentar></DetalheParlamentar>");
+        Files.writeString(senado.resolve("5000-votacoes.xml"), "<VotacaoParlamentar><Parlamentar><Votacoes>"
+                + "<Votacao><SessaoPlenaria><DataSessao>2024-03-01</DataSessao></SessaoPlenaria><SiglaDescricaoVoto>Sim</SiglaDescricaoVoto></Votacao>"
+                + "<Votacao><SessaoPlenaria><DataSessao>2024-03-02</DataSessao></SessaoPlenaria><SiglaDescricaoVoto>Não</SiglaDescricaoVoto></Votacao>"
+                + "<Votacao><SessaoPlenaria><DataSessao>2024-03-03</DataSessao></SessaoPlenaria><SiglaDescricaoVoto>NCom</SiglaDescricaoVoto></Votacao>"
+                + "<Votacao><SessaoPlenaria><DataSessao>2024-03-04</DataSessao></SessaoPlenaria><SiglaDescricaoVoto>LP</SiglaDescricaoVoto></Votacao>"
+                + "</Votacoes></Parlamentar></VotacaoParlamentar>");
+        Files.writeString(senado.resolve("5000-autorias.xml"), "<MateriasAutoriaParlamentar><Parlamentar><Autorias>"
+                + "<Autoria><IndicadorAutorPrincipal>Sim</IndicadorAutorPrincipal><Materia><DescricaoIdentificacao>PL 1/2024"
+                + "</DescricaoIdentificacao><Ementa>Primeira</Ementa><Data>2024-01-01</Data></Materia></Autoria>"
+                + "<Autoria><IndicadorAutorPrincipal>Não</IndicadorAutorPrincipal><Materia><DescricaoIdentificacao>PL 2/2024"
+                + "</DescricaoIdentificacao><Ementa>Segunda</Ementa><Data>2024-02-01</Data></Materia></Autoria>"
+                + "</Autorias></Parlamentar></MateriasAutoriaParlamentar>");
+        // TCU: CPF completo, CPF mascarado + nome, e mascarado com outro nome (não liga)
+        Files.write(brutos.resolve("resp-contas-julgadas-irreg-implicacao-eleitoral.csv"), String.join("\n",
+                "NOME;CPF;UF;MUNICIPIO;PROCESSO;DELIBERACAO;DATA TRANSITO EM JULGADO",
+                "JOSÉ PEREIRA SANTOS;123.456.789-01;ZZ;CIDADE A;TC 001/2020;AC 10/2021;01/02/2022",
+                "MARIA DA LUZ COSTA;***.654.321-**;ZZ;CIDADE B;TC 002/2020;AC 11/2021;01/03/2022",
+                "OUTRA PESSOA;***.654.321-**;ZZ;CIDADE C;TC 003/2020;AC 12/2021;01/04/2022") .getBytes(LATIN1));
+
         List<String> log = new ArrayList<>();
         PipelineColeta pipeline = new PipelineColeta(raiz, log::add);
         BaseDados base = pipeline.executar("zz", 2026, false);
 
-        assertEquals(3, base.getCandidatos().size(), "só deputado federal da UF");
+        assertEquals(4, base.getCandidatos().size(), "todos os cargos da UF (sem outras UFs)");
+        Candidato senador = base.buscarCandidato("260009");
+        assertEquals(br.unit.eleicao.modelo.Cargo.SENADOR, senador.getTipoCargo());
+        assertEquals(1, senador.getAtuacao().size(), "dados do Senado ligados por nome + nascimento");
+        br.unit.eleicao.modelo.ResumoMandato rs = senador.getAtuacao().get(0);
+        assertEquals(50.0, rs.getPresenca(), 1e-9, "2 de 4 registros são Sim/Não/Abstenção");
+        assertEquals(2, rs.getProjetos());
+        assertTrue(rs.getObservacaoProjetos().startsWith("1 "));
         assertEquals(2, base.getDeputados().size(), "só deputados da UF e da legislatura atual");
         assertEquals(3, base.getTotalVotacoes(), "só votações do Plenário");
 
@@ -147,6 +183,9 @@ class PipelineColetaTest {
         assertEquals("PL 10/2023", base.getVotacao("1-1").getProposicao());
         assertEquals(br.unit.eleicao.modelo.Elegibilidade.APTA, ze.getElegibilidade());
         assertEquals(Boolean.TRUE, ze.getReeleicao());
+        assertEquals(1, ze.getContasIrregulares().size());
+        assertEquals("TC 001/2020", ze.getContasIrregulares().get(0).getProcesso());
+        assertEquals("CIDADE A/ZZ", ze.getContasIrregulares().get(0).getLocal());
         assertEquals(2, base.getProposicoesDe(101).size(), "PL e PEC como proponente");
         assertTrue(base.getProposicoesDe(101).stream().anyMatch(p -> p.isAprovada()
                 && p.getEmenta().contains("\n")));
@@ -154,6 +193,8 @@ class PipelineColetaTest {
         Candidato maria = base.buscarCandidato("260002");
         assertEquals(102, maria.getIdDeputado());
         assertEquals(CruzadorIdentidades.NOME_NASCIMENTO, maria.getCriterioVinculo(), "CPF só no TSE");
+        assertEquals(1, maria.getContasIrregulares().size(), "CPF parcial + nome completo");
+        assertEquals("CPF parcial + nome", maria.getContasIrregulares().get(0).getCriterio());
         assertNull(maria.getPatrimonioAnterior());
         assertEquals(br.unit.eleicao.modelo.Elegibilidade.SUB_JUDICE, maria.getElegibilidade());
 
@@ -165,7 +206,9 @@ class PipelineColetaTest {
         // arquivos processados podem ser relidos e não guardam CPF
         Path processados = pipeline.pastaProcessada("ZZ");
         BaseDados relida = new RepositorioArquivos().carregar(processados);
-        assertEquals(3, relida.getCandidatos().size());
+        assertEquals(4, relida.getCandidatos().size());
+        assertEquals(1, relida.buscarCandidato("260009").getAtuacao().size(), "atuação gravada e relida");
+        assertEquals(1, relida.buscarCandidato("260002").getContasIrregulares().size());
         assertEquals(LocalDate.of(2026, 10, 4), relida.getMetadados().getDataEleicao());
         for (Path arquivo : Files.list(processados).toList()) {
             assertFalse(Files.readString(arquivo).contains("12345678901"), "CPF gravado em " + arquivo);

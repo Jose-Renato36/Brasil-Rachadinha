@@ -12,6 +12,7 @@ public class Metadados {
     private boolean demonstracao;
     private String descricao;
     private String geradoEm;
+    private boolean tcuVerificado;
 
     public Metadados(String uf, int anoEleicao, int anoAnterior, LocalDate dataEleicao) {
         this.uf = uf;
@@ -67,6 +68,15 @@ public class Metadados {
 
     public void setDescricao(String descricao) {
         this.descricao = descricao;
+    }
+
+    /** true quando a lista do TCU foi lida: só então "nada consta" tem significado. */
+    public boolean isTcuVerificado() {
+        return tcuVerificado;
+    }
+
+    public void setTcuVerificado(boolean tcuVerificado) {
+        this.tcuVerificado = tcuVerificado;
     }
 
     public String getGeradoEm() {

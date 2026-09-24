@@ -3,12 +3,18 @@
 
 const CORES = ['#2a78d6', '#eb6834', '#1baf7a'];
 const PESOS = [{ valor: 0, texto: 'Não importa' }, { valor: 5, texto: 'Importa' }, { valor: 10, texto: 'Importa muito' }];
+const EXPERIENCIAS = [
+  { codigo: 'MANDATO_ATUAL', texto: 'Tem mandato hoje', explica: 'Exerce um cargo eletivo agora' },
+  { codigo: 'JA_ELEITO', texto: 'Já foi eleito(a)', explica: 'Já exerceu mandato, mas não agora' },
+  { codigo: 'JA_CONCORREU', texto: 'Já concorreu', explica: 'Disputou eleições, sem ser eleito(a)' },
+  { codigo: 'NOVO', texto: 'Estreante', explica: 'Sem candidaturas nas eleições anteriores analisadas' },
+];
 
 const app = {
   estado: null,
   config: carregarConfig(),
   comparar: lerLocal('comparar', []),
-  candidatos: null,
+  candidatos: {},
 };
 
 // ------------------------------------------------------------ utilidades
@@ -27,7 +33,7 @@ function gravarLocal(chave, valor) {
 }
 
 function carregarConfig() {
-  return Object.assign({ pesos: {}, invertidos: {}, inaptos: false, cobertura: 2, metodo: 'soma', avancado: false },
+  return Object.assign({ pesos: {}, invertidos: {}, inaptos: false, cobertura: 2, metodo: 'soma', avancado: false, cargo: null },
     lerLocal('config', {}));
 }
 
@@ -49,39 +55,42 @@ function esc(s) {
 
 const $ = sel => document.querySelector(sel);
 const main = () => $('#conteudo');
+const semAcento = s => String(s ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
 function iniciais(nome) {
   return esc(String(nome).split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase());
 }
 
-function avatar(c, grande) {
-  const cls = 'avatar' + (grande ? ' grande' : '');
+function avatar(c, tamanho) {
+  const cls = 'avatar' + (tamanho ? ' ' + tamanho : '');
   if (c.foto) return `<img class="${cls}" src="${esc(c.foto)}" alt="" loading="lazy" onerror="this.outerHTML='<div class=&quot;${cls}&quot;>${iniciais(c.nome)}</div>'">`;
   return `<div class="${cls}" aria-hidden="true">${iniciais(c.nome)}</div>`;
 }
 
+function seloExperiencia(c) {
+  return `<span class="selo exp-${esc(c.experiencia)}">${esc(c.experienciaTexto)}</span>`;
+}
+
 function etiquetas(c) {
   const e = [];
-  if (c.mandato) e.push('<span class="etiqueta azul">Deputado(a) federal atual</span>');
-  else if (c.mandatoAtual) e.push(`<span class="etiqueta azul" title="${esc(c.mandatoAtual)}">Tem mandato: ${esc(c.mandatoAtual.split(',')[0])}</span>`);
-  else if (c.jaEleito) e.push('<span class="etiqueta">Já foi eleito(a) antes</span>');
   if (c.elegibilidade === 'INAPTA') e.push(`<span class="etiqueta perigo" title="${esc(c.elegibilidadeExplicacao)}">Candidatura inapta</span>`);
   if (c.elegibilidade === 'SUB_JUDICE') e.push(`<span class="etiqueta alerta" title="${esc(c.elegibilidadeExplicacao)}">Com recurso na Justiça</span>`);
   if (c.elegibilidade === 'EM_ANALISE') e.push(`<span class="etiqueta" title="${esc(c.elegibilidadeExplicacao)}">Registro em análise</span>`);
+  if (c.contasIrregulares > 0) e.push('<span class="etiqueta perigo" title="Consta na lista do TCU de contas julgadas irregulares">Contas irregulares (TCU)</span>');
   if (c.vinculoDuvidoso) e.push('<span class="etiqueta alerta" title="Ligamos esta candidatura a um mandato só pelo nome. Confira no perfil.">Confira a identidade</span>');
   return e.join(' ');
 }
 
 function moeda(v) {
-  return v == null ? 'sem dados' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return v == null ? 'sem dados' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+}
+
+function pct(v) {
+  return v == null ? '–' : v.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%';
 }
 
 function erroHtml(e) {
   return `<div class="caixa-erro"><strong>Algo deu errado.</strong> ${esc(e.message || e)}</div>`;
-}
-
-function indicador(codigo) {
-  return app.estado.indicadores.find(i => i.codigo === codigo);
 }
 
 function pesoDe(codigo) {
@@ -90,10 +99,31 @@ function pesoDe(codigo) {
   return codigo === 'alinhamento' ? (app.estado.posicoes > 0 ? 5 : 0) : 5;
 }
 
+function cargosPrincipais() {
+  return (app.estado.cargos || []).filter(c => c.principal);
+}
+
+function cargoPadrao() {
+  const lista = cargosPrincipais();
+  const salvo = lista.find(c => c.codigo === app.config.cargo);
+  return (salvo || lista.find(c => c.codigo === 'DEPUTADO_FEDERAL') || lista[0] || {}).codigo;
+}
+
+function rotuloCargo(codigo, plural) {
+  const c = (app.estado.cargos || []).find(x => x.codigo === codigo);
+  return c ? c.rotulo : 'Todos os cargos';
+}
+
+async function listaCandidatos(cargo = 'TODOS') {
+  if (!app.candidatos[cargo]) app.candidatos[cargo] = await api('candidatos', cargo === 'TODOS' ? {} : { cargo });
+  return app.candidatos[cargo];
+}
+
 // ------------------------------------------------------------ roteamento
 
 const rotas = {
   inicio: telaInicio,
+  candidatos: telaCandidatos,
   ranking: telaRanking,
   opinioes: telaOpinioes,
   comparar: telaComparar,
@@ -115,7 +145,7 @@ async function navegar() {
       location.hash = '#/dados';
       return;
     }
-    await rotas[nome](partes.slice(1));
+    await rotas[nome](partes.slice(1).map(decodeURIComponent));
   } catch (e) {
     main().innerHTML = erroHtml(e);
   }
@@ -124,9 +154,9 @@ async function navegar() {
 
 async function atualizarEstado() {
   app.estado = await api('estado');
-  app.candidatos = null;
+  app.candidatos = {};
   $('#aviso-demo').hidden = !app.estado.demo;
-  $('#marca-uf').textContent = app.estado.carregada ? '· ' + app.estado.uf + ' · ' + app.estado.anoEleicao : '';
+  $('#marca-uf').textContent = app.estado.carregada ? app.estado.uf + ' · Eleições ' + app.estado.anoEleicao : '';
 }
 
 window.addEventListener('hashchange', navegar);
@@ -142,64 +172,443 @@ window.addEventListener('DOMContentLoaded', () => {
 
 async function telaInicio() {
   const e = app.estado;
+  const blocos = cargosPrincipais().map(c => `
+    <a class="bloco-cargo" href="#/candidatos/${esc(c.codigo)}">
+      <span class="bloco-orgao">${esc(c.orgao)}</span>
+      <strong>${esc(c.rotulo)}</strong>
+      <span class="bloco-total">${c.total} candidatura${c.total === 1 ? '' : 's'}</span>
+    </a>`).join('');
   main().innerHTML = `
     <section class="hero">
-      <h1>Quem merece seu voto para Deputado Federal${e.demo ? '' : ' em ' + esc(e.uf)}?</h1>
-      <p>Veja o que dizem os dados públicos sobre cada candidatura. <strong>Você</strong> escolhe o que é importante;
-         o site só organiza as informações e mostra de onde cada número veio.</p>
+      <p class="sobretitulo">Eleições ${e.anoEleicao}${e.demo ? '' : ' · ' + esc(e.uf)}</p>
+      <h1>Conheça quem pede o seu voto antes de decidir.</h1>
+      <p>Quem já foi político, o que fez, quando e onde. Quem está estreando. Tudo com dados públicos do TSE,
+        da Câmara, do Senado e do TCU, e com a fonte de cada número. <strong>Você decide o que é importante.</strong></p>
       <div class="busca">
-        <input type="search" id="busca-inicio" placeholder="Procure pelo nome ou número do candidato" aria-label="Procurar candidato" autocomplete="off">
+        <input type="search" id="busca-inicio" placeholder="Procure pelo nome ou pelo número na urna" aria-label="Procurar candidato" autocomplete="off">
         <div class="sugestoes" id="sugestoes" hidden></div>
       </div>
     </section>
-    <div class="numeros">
-      <div><strong>${e.candidatos}</strong>candidaturas</div>
-      <div><strong>${e.comMandato}</strong>já são deputados(as)</div>
-      <div><strong>${e.votacoes}</strong>votações analisadas</div>
-    </div>
+    <h2 class="titulo-secao">Escolha o cargo</h2>
+    <div class="grade-cargos">${blocos}</div>
+    <h2 class="titulo-secao">Como usar</h2>
     <div class="grade grade-3">
-      <a class="cartao passo" href="#/ranking"><span class="numero">1</span><h2>Diga o que importa</h2>
-        <p class="fraco">Presença nas votações, gasto da verba, projetos, patrimônio… Você escolhe o peso de cada um.</p></a>
-      <a class="cartao passo" href="#/opinioes"><span class="numero">2</span><h2>Responda como votaria</h2>
-        <p class="fraco">Veja projetos que já foram votados e descubra quem votou como você.</p></a>
-      <a class="cartao passo" href="#/comparar"><span class="numero">3</span><h2>Compare</h2>
-        <p class="fraco">Coloque até 3 candidatos lado a lado antes de decidir.</p></a>
-    </div>
-    <p class="caixa-info" style="margin-top:24px">Candidatos que <strong>nunca foram deputados</strong> não têm dados da Câmara
-      (presença, verba, projetos). Isso não é nota baixa: é falta de histórico. Veja “Como funciona”.</p>`;
+      <a class="cartao passo" href="#/candidatos"><span class="numero">1</span><h3>Veja quem são</h3>
+        <p class="fraco">Cartões com a trajetória de cada pessoa: estreante, já eleita, com mandato hoje. Clique para ver o que fez.</p></a>
+      <a class="cartao passo" href="#/opinioes"><span class="numero">2</span><h3>Diga como votaria</h3>
+        <p class="fraco">Responda sobre projetos que já foram votados e descubra quem votou como você.</p></a>
+      <a class="cartao passo" href="#/ranking"><span class="numero">3</span><h3>Monte sua lista</h3>
+        <p class="fraco">Diga o que importa (presença, economia, projetos…) e compare até 3 pessoas lado a lado.</p></a>
+    </div>`;
   ligarBusca($('#busca-inicio'), $('#sugestoes'));
-}
-
-async function listaCandidatos() {
-  if (!app.candidatos) app.candidatos = await api('candidatos');
-  return app.candidatos;
 }
 
 function ligarBusca(input, caixa) {
   input.addEventListener('input', async () => {
-    const termo = input.value.trim().toLowerCase();
+    const termo = input.value.trim();
     if (termo.length < 2) { caixa.hidden = true; return; }
-    const semAcento = s => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
     const t = semAcento(termo);
     const achados = (await listaCandidatos())
       .filter(c => semAcento(c.nome + ' ' + c.nomeCivil + ' ' + c.partido).includes(t) || String(c.numero).startsWith(termo))
       .slice(0, 8);
     caixa.innerHTML = achados.length
-      ? achados.map(c => `<a href="#/candidato/${esc(c.sq)}">${avatar(c)}<span><strong>${esc(c.nome)}</strong><br><small>Nº ${esc(c.numero)} · ${esc(c.partido)}</small></span></a>`).join('')
+      ? achados.map(c => `<a href="#/candidato/${esc(c.sq)}">${avatar(c, 'pequeno')}<span><strong>${esc(c.nome)}</strong><br><small>${esc(c.cargoTexto)} · Nº ${esc(c.numero)} · ${esc(c.partido)}</small></span></a>`).join('')
       : '<p style="padding:10px 12px" class="fraco">Ninguém encontrado.</p>';
     caixa.hidden = false;
   });
   input.addEventListener('blur', () => setTimeout(() => { caixa.hidden = true; }, 200));
 }
 
+// ------------------------------------------------------------ candidatos (cartões)
+
+const filtroCartoes = { experiencia: 'TODOS', busca: '', ordem: 'nome' };
+
+async function telaCandidatos([cargoRota]) {
+  const cargos = app.estado.cargos || [];
+  const cargo = cargos.some(c => c.codigo === cargoRota) ? cargoRota : cargoPadrao();
+  app.config.cargo = cargo;
+  salvarConfig();
+  const abas = cargos.map(c => `<a class="aba ${c.codigo === cargo ? 'ativa' : ''}" href="#/candidatos/${esc(c.codigo)}"
+      aria-current="${c.codigo === cargo}">${esc(c.rotulo)} <span>${c.total}</span></a>`).join('');
+  main().innerHTML = `
+    <h1>Candidatos a ${esc(rotuloCargo(cargo))}</h1>
+    <p class="fraco">Clique em um cartão para ver a trajetória e o que a pessoa já fez.</p>
+    <nav class="abas" aria-label="Cargos">${abas}</nav>
+    <div class="filtros">
+      <div class="chips" role="group" aria-label="Experiência" id="chips-exp"></div>
+      <div class="filtros-linha">
+        <input type="search" id="busca-cartoes" placeholder="Nome, número ou partido" aria-label="Filtrar candidatos" value="${esc(filtroCartoes.busca)}">
+        <select id="ordem" aria-label="Ordenar">
+          <option value="nome">Ordem alfabética</option>
+          <option value="numero" ${filtroCartoes.ordem === 'numero' ? 'selected' : ''}>Número na urna</option>
+          <option value="partido" ${filtroCartoes.ordem === 'partido' ? 'selected' : ''}>Partido</option>
+          <option value="experiencia" ${filtroCartoes.ordem === 'experiencia' ? 'selected' : ''}>Mais experiência primeiro</option>
+        </select>
+      </div>
+    </div>
+    <div id="cartoes" class="grade-cartoes" aria-live="polite"></div>`;
+  const lista = await listaCandidatos(cargo);
+  $('#busca-cartoes').addEventListener('input', ev => { filtroCartoes.busca = ev.target.value; desenharCartoes(lista); });
+  $('#ordem').addEventListener('change', ev => { filtroCartoes.ordem = ev.target.value; desenharCartoes(lista); });
+  desenharCartoes(lista);
+}
+
+function desenharCartoes(lista) {
+  const contagem = { TODOS: lista.length };
+  lista.forEach(c => { contagem[c.experiencia] = (contagem[c.experiencia] || 0) + 1; });
+  $('#chips-exp').innerHTML = [{ codigo: 'TODOS', texto: 'Todos' }, ...EXPERIENCIAS].map(x =>
+    `<button data-exp="${x.codigo}" aria-pressed="${filtroCartoes.experiencia === x.codigo}" title="${esc(x.explica || '')}"
+      class="${x.codigo === 'TODOS' ? '' : 'exp-chip exp-' + x.codigo}">${esc(x.texto)} <span>${contagem[x.codigo] || 0}</span></button>`).join('');
+  $('#chips-exp').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    filtroCartoes.experiencia = b.dataset.exp;
+    desenharCartoes(lista);
+  }));
+  const t = semAcento(filtroCartoes.busca.trim());
+  const ordemExp = { MANDATO_ATUAL: 0, JA_ELEITO: 1, JA_CONCORREU: 2, NOVO: 3 };
+  const itens = lista
+    .filter(c => filtroCartoes.experiencia === 'TODOS' || c.experiencia === filtroCartoes.experiencia)
+    .filter(c => !t || semAcento(c.nome + ' ' + c.nomeCivil + ' ' + c.partido + ' ' + c.numero).includes(t))
+    .sort((a, b) => {
+      if (filtroCartoes.ordem === 'numero') return String(a.numero).localeCompare(String(b.numero), 'pt-BR', { numeric: true });
+      if (filtroCartoes.ordem === 'partido') return a.partido.localeCompare(b.partido) || a.nome.localeCompare(b.nome, 'pt-BR');
+      if (filtroCartoes.ordem === 'experiencia') return ordemExp[a.experiencia] - ordemExp[b.experiencia] || a.nome.localeCompare(b.nome, 'pt-BR');
+      return a.nome.localeCompare(b.nome, 'pt-BR');
+    });
+  const alvo = $('#cartoes');
+  alvo.innerHTML = itens.length ? itens.map(cartao).join('') : '<p class="fraco">Ninguém com esses filtros.</p>';
+  alvo.querySelectorAll('.cartao-candidato > button.cabeca').forEach(b => b.addEventListener('click', () => alternarCartao(b.closest('.cartao-candidato'))));
+}
+
+function miniLinha(c) {
+  const anos = app.estado.anosTrajetoria || [];
+  return `<ol class="mini-linha" aria-label="Eleições anteriores">${anos.map(ano => {
+    const t = (c.linhaDoTempo || []).filter(x => x.ano === ano);
+    const eleito = t.some(x => x.eleito);
+    const cls = !t.length ? 'vazio' : eleito ? 'eleito' : 'concorreu';
+    const dica = !t.length ? `${ano}: não concorreu` : t.map(x => `${ano}: ${x.cargoTexto} – ${x.resultado}`).join('; ');
+    return `<li class="${cls}" title="${esc(dica)}"><span class="ponto"></span><small>${ano}</small></li>`;
+  }).join('')}</ol>`;
+}
+
+function cartao(c) {
+  return `<article class="cartao-candidato" data-sq="${esc(c.sq)}">
+    <button class="cabeca" aria-expanded="false">
+      ${avatar(c)}
+      <span class="identidade">
+        <strong class="nome">${esc(c.nome)}</strong>
+        <span class="linha-info">${esc(c.partido)} · ${esc(c.cargoTexto)}</span>
+        ${seloExperiencia(c)}
+      </span>
+      <span class="numero-mini" aria-label="Número na urna">${esc(c.numero)}</span>
+    </button>
+    ${miniLinha(c)}
+    ${etiquetas(c) ? `<div class="etiquetas">${etiquetas(c)}</div>` : ''}
+    <div class="detalhe" hidden></div>
+  </article>`;
+}
+
+async function alternarCartao(el) {
+  const aberto = el.classList.toggle('aberto');
+  el.querySelector('.cabeca').setAttribute('aria-expanded', aberto);
+  const det = el.querySelector('.detalhe');
+  det.hidden = !aberto;
+  if (!aberto) return;
+  if (!det.dataset.carregado) {
+    det.innerHTML = '<p class="carregando">Carregando…</p>';
+    try {
+      const c = await api('candidato', { sq: el.dataset.sq });
+      det.innerHTML = detalheCandidato(c, true);
+      ligarDetalhe(det, c);
+      det.dataset.carregado = '1';
+    } catch (e) { det.innerHTML = erroHtml(e); }
+  }
+  el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
+}
+
+/** Explicação para mandatos sem dados de atuação em base nacional. */
+function semDadosDoMandato(t) {
+  const local = t.local ? ' de ' + t.local : '';
+  const textos = {
+    PREFEITO: `Não existe base nacional padronizada sobre a gestão das prefeituras. Consulte o Tribunal de Contas do Estado e o portal da transparência da prefeitura${local}.`,
+    VICE_PREFEITO: 'Não existe base nacional padronizada sobre a gestão das prefeituras. Consulte o Tribunal de Contas do Estado.',
+    VEREADOR: `As câmaras municipais não publicam dados num padrão nacional. Consulte o site da Câmara Municipal${local}.`,
+    GOVERNADOR: 'Não existe base nacional padronizada sobre a gestão dos governos estaduais. Consulte o Tribunal de Contas do Estado e o portal da transparência do estado.',
+    VICE_GOVERNADOR: 'Consulte o Tribunal de Contas do Estado e o portal da transparência do estado.',
+    DEPUTADO_ESTADUAL: 'As Assembleias Legislativas não publicam dados num padrão nacional. Consulte o site da Assembleia do estado.',
+    DEPUTADO_DISTRITAL: 'Consulte o site da Câmara Legislativa do Distrito Federal.',
+  };
+  return textos[t.tipo] || 'Sem dados de atuação nas fontes usadas.';
+}
+
+function blocoAtuacao(a) {
+  const presenca = a.presenca == null ? '' : `
+    <div class="medida"><span class="rotulo">Presença nas votações</span>
+      <div class="medidor" role="img" aria-label="${pct(a.presenca)}"><span style="width:${Math.min(100, a.presenca)}%"></span></div>
+      <strong>${pct(a.presenca)}</strong></div>
+    <small class="fraco">${esc(a.detalhePresenca)}</small>`;
+  return `<div class="mandato-dados">
+    <div class="mandato-titulo"><strong>${esc(a.cargo)}</strong> · ${esc(a.casa)} · ${esc(a.periodo)}</div>
+    ${presenca}
+    <div class="numeros-mandato">
+      <div><strong>${a.projetos}</strong><span>projetos apresentados${a.observacaoProjetos ? ' (' + esc(a.observacaoProjetos) + ')' : ''}</span></div>
+      ${a.casa.startsWith('Câmara') ? `<div><strong>${a.aprovados}</strong><span>aprovados</span></div>` : ''}
+      ${a.gastoMensal != null ? `<div><strong>${moeda(a.gastoMensal)}</strong><span>gasto médio por mês da verba de gabinete</span></div>` : ''}
+    </div>
+    ${a.destaques.length ? `<details><summary>Ver projetos em destaque</summary><ul class="destaques">${a.destaques.map(d => `<li>${esc(d)}</li>`).join('')}</ul></details>` : ''}
+    ${a.url ? `<a href="${esc(a.url)}" target="_blank" rel="noopener">Página oficial ↗</a>` : ''}
+  </div>`;
+}
+
+function detalheCandidato(c, resumido) {
+  const anoAtual = app.estado.anoEleicao;
+  const traj = c.trajetoria.length ? `<ol class="linha-tempo">${c.trajetoria.map(t => {
+    const exercendo = t.eleito && t.fimMandato >= anoAtual && t.ano < anoAtual;
+    const cls = t.eleito ? 'ok' : t.resultado === 'Suplente' ? 'alerta' : '';
+    const periodo = t.eleito ? `<br><small>Mandato ${t.ano + 1}–${t.fimMandato}${exercendo ? ' (em exercício)' : ''}</small>` : '';
+    return `<li class="marco ${t.eleito ? 'eleito' : ''}"><span class="ano">${t.ano}</span>
+      <div><strong>${esc(t.cargoTexto)}</strong>${t.local ? ' em ' + esc(t.local) : ''} · ${esc(t.partido)}
+        <span class="etiqueta ${cls}">${esc(t.resultado)}</span>${periodo}</div></li>`;
+  }).join('')}</ol>` : `<p class="fraco">Nenhuma candidatura encontrada nas eleições de ${c.trajetoriaDe} a ${c.trajetoriaAte} neste estado.
+      Pode ser a primeira eleição, ou a pessoa concorreu em outro estado.</p>`;
+
+  const mandatosSemDados = c.trajetoria.filter(t => t.eleito && t.tipo !== 'DEPUTADO_FEDERAL' && t.tipo !== 'SENADOR' && t.tipo !== 'SUPLENTE_SENADOR');
+  const atuacao = c.atuacao.map(blocoAtuacao).join('')
+    + mandatosSemDados.map(t => `<div class="mandato-dados sem">
+        <div class="mandato-titulo"><strong>${esc(t.cargoTexto)}</strong>${t.local ? ' em ' + esc(t.local) : ''} · ${t.ano + 1}–${t.fimMandato}</div>
+        <p>${esc(semDadosDoMandato(t))}</p></div>`).join('');
+
+  let tcu = '';
+  if (c.contas.length) {
+    tcu = `<div class="caixa-erro"><strong>Consta na lista do TCU de contas julgadas irregulares</strong> (decisão definitiva, lista enviada ao TSE para a Lei da Ficha Limpa):
+      <ul>${c.contas.map(x => `<li>Processo ${esc(x.processo)} · ${esc(x.deliberacao)} · ${esc(x.local)}${x.transito ? ' · trânsito em julgado ' + esc(x.transito) : ''} <small>(ligado por ${esc(x.criterio)})</small></li>`).join('')}</ul>
+      <small>Estar na lista não torna a candidatura automaticamente inelegível: quem decide é a Justiça Eleitoral.</small></div>`;
+  } else if (app.estado.tcuVerificado) {
+    tcu = '<p class="caixa-ok">Não consta na lista do TCU de contas julgadas irregulares com implicação eleitoral (verificação pelo CPF).</p>';
+  }
+
+  const bens = c.patrimonio == null ? '<p class="fraco">Sem declaração de bens.</p>' : (() => {
+    const max = Math.max(c.patrimonio || 0, c.patrimonioAnterior || 0) || 1;
+    const linha = (ano, v) => `<div class="barra-bens"><span class="ano">${ano}</span>
+      <div class="trilho"><span style="width:${v == null ? 0 : Math.max(1, 100 * v / max)}%"></span></div><strong>${v == null ? 'não declarou' : moeda(v)}</strong></div>`;
+    const variacao = c.patrimonioAnterior ? (100 * (c.patrimonio - c.patrimonioAnterior) / c.patrimonioAnterior) : null;
+    return linha(c.anoAnterior, c.patrimonioAnterior) + linha(c.anoEleicao, c.patrimonio)
+      + (variacao != null ? `<p class="fraco">${variacao >= 0 ? 'Aumento' : 'Redução'} de ${pct(Math.abs(variacao))} (valores declarados pela própria pessoa, sem correção pela inflação).</p>` : '');
+  })();
+
+  const naLista = app.comparar.includes(c.sq);
+  return `
+    <div class="detalhe-grade">
+      <section><h3>Trajetória política</h3>${traj}</section>
+      <section><h3>O que fez nos mandatos</h3>
+        ${atuacao || '<p class="fraco">Sem mandatos anteriores com dados de atuação.</p>'}
+        ${tcu}</section>
+      <section><h3>Bens declarados</h3>${bens}</section>
+      <section><h3>Quem é</h3>
+        <dl class="ficha-dados">
+          <dt>Nome completo</dt><dd>${esc(c.nomeCivil)}</dd>
+          <dt>Idade</dt><dd>${c.idade != null ? c.idade + ' anos' : 'não informada'}</dd>
+          <dt>Escolaridade</dt><dd>${esc(c.escolaridade)}</dd>
+          <dt>Ocupação</dt><dd>${esc(c.ocupacao || 'não informada')}</dd>
+          <dt>Situação no TSE</dt><dd>${esc(c.elegibilidadeTexto)} <small class="fraco">${esc(c.elegibilidadeExplicacao)}</small></dd>
+        </dl></section>
+    </div>
+    <div class="acoes-detalhe">
+      ${resumido ? `<a class="botao" href="#/candidato/${esc(c.sq)}">Ver perfil completo</a>` : ''}
+      <button class="botao secundario" data-comparar="${esc(c.sq)}">${naLista ? '✓ Na comparação' : '+ Comparar'}</button>
+    </div>`;
+}
+
+function ligarDetalhe(raiz, c) {
+  raiz.querySelectorAll('[data-comparar]').forEach(b => b.addEventListener('click', () => {
+    alternarComparacao(c.sq);
+    b.textContent = app.comparar.includes(c.sq) ? '✓ Na comparação' : '+ Comparar';
+  }));
+}
+
+function alternarComparacao(sq) {
+  if (app.comparar.includes(sq)) {
+    app.comparar = app.comparar.filter(s => s !== sq);
+  } else {
+    if (app.comparar.length >= 3) app.comparar.shift();
+    app.comparar.push(sq);
+  }
+  gravarLocal('comparar', app.comparar);
+}
+
+// ------------------------------------------------------------ perfil
+
+async function telaCandidato([sq]) {
+  const c = await api('candidato', { sq: sq || '' });
+  const inds = app.estado.indicadores.map(ind => {
+    const v = c.indicadores[ind.codigo];
+    return `<div class="cartao indicador-cartao ${v.temDados ? '' : 'sem'}">
+      <h3>${esc(ind.titulo)}</h3>
+      <div class="valor">${esc(v.temDados ? v.texto : 'Sem dados')}</div>
+      <p>${esc(v.temDados ? v.resumo : v.detalhe)}</p>
+      ${v.temDados ? `<small>Como calculamos: ${esc(v.detalhe)}</small><br>` : ''}
+      <small>Fonte: ${esc(ind.fonte)}</small>
+    </div>`;
+  }).join('');
+  main().innerHTML = `
+    <p><button class="botao discreto" id="voltar">← Voltar</button></p>
+    <section class="cartao perfil-topo">
+      ${avatar(c, 'grande')}
+      <div style="flex:1;min-width:240px">
+        <p class="sobretitulo">${esc(c.cargoTexto)} · ${esc(c.partido)}</p>
+        <h1 style="margin-bottom:6px">${esc(c.nome)}</h1>
+        <div class="etiquetas">${seloExperiencia(c)} ${etiquetas(c)}</div>
+      </div>
+      <div class="urna"><small>Número na urna</small><div class="numero-urna">${esc(c.numero)}</div></div>
+    </section>
+    ${c.elegibilidade !== 'APTA' ? `<p class="${c.elegibilidade === 'INAPTA' ? 'caixa-erro' : 'caixa-alerta'}" style="margin-top:16px"><strong>Situação: ${esc(c.elegibilidadeTexto)}.</strong> ${esc(c.elegibilidadeExplicacao)}</p>` : ''}
+    ${c.deputado && c.vinculoDuvidoso ? `<p class="caixa-alerta">Ligamos esta candidatura ao mandato de <strong>${esc(c.deputado.nome)}</strong> só pelo nome. Confira se é a mesma pessoa.</p>` : ''}
+    <div class="cartao" style="margin-top:16px">${detalheCandidato(c, false)}</div>
+    <h2 class="titulo-secao">Indicadores usados na comparação</h2>
+    <p class="fraco">Calculados com dados da Câmara (mandato atual) e do TSE. Quem nunca foi deputado(a) federal não tem os da Câmara: isso não é nota ruim.</p>
+    <div class="grade grade-3">${inds}</div>`;
+  $('#voltar').addEventListener('click', () => { if (history.length > 1) history.back(); else location.hash = '#/candidatos'; });
+  ligarDetalhe(main(), c);
+}
+
+// ------------------------------------------------------------ comparar
+
+async function telaComparar() {
+  const todos = await listaCandidatos();
+  const opcoes = sel => '<option value="">— escolher —</option>' + todos.map(c => `<option value="${esc(c.sq)}" ${c.sq === sel ? 'selected' : ''}>${esc(c.nome)} (${esc(c.cargoTexto)}, ${esc(c.partido)} ${esc(c.numero)})</option>`).join('');
+  main().innerHTML = `
+    <h1>Comparar candidatos</h1>
+    <p class="fraco">Escolha até 3 pessoas. Você também pode adicionar pelos cartões ou pelo perfil.</p>
+    <div class="grade grade-3">${[0, 1, 2].map(i => `<select data-i="${i}" aria-label="Candidato ${i + 1}">${opcoes(app.comparar[i])}</select>`).join('')}</div>
+    <div id="comparacao" style="margin-top:20px"></div>`;
+  document.querySelectorAll('select[data-i]').forEach(s => s.addEventListener('change', () => {
+    const escolhidos = [...document.querySelectorAll('select[data-i]')].map(x => x.value).filter(Boolean);
+    app.comparar = [...new Set(escolhidos)];
+    gravarLocal('comparar', app.comparar);
+    desenharComparacao();
+  }));
+  await desenharComparacao();
+}
+
+async function desenharComparacao() {
+  const alvo = $('#comparacao');
+  if (!app.comparar.length) { alvo.innerHTML = '<p class="caixa-info">Nenhuma pessoa escolhida ainda.</p>'; return; }
+  const perfis = await Promise.all(app.comparar.map(sq => api('candidato', { sq })));
+  // notas normalizadas com o mesmo peso em tudo, entre candidatos do mesmo cargo de cada pessoa
+  const cargos = [...new Set(perfis.map(c => c.cargo))];
+  const notas = {};
+  for (const cargo of cargos) {
+    const p = { inaptos: 1, cobertura: 1, cargo };
+    app.estado.indicadores.forEach(ind => { p['peso.' + ind.codigo] = 10; });
+    (await api('ranking', p)).itens.forEach(i => { notas[i.sq] = i.indicadores; });
+  }
+  const linhas = [
+    ['Cargo disputado', c => esc(c.cargoTexto)],
+    ['Número / partido', c => `<strong>${esc(c.numero)}</strong> · ${esc(c.partido)}`],
+    ['Experiência', c => seloExperiencia(c)],
+    ['Eleições anteriores', c => c.trajetoria.length ? c.trajetoria.map(t => `${t.ano}: ${esc(t.cargoTexto)} – ${esc(t.resultado)}`).join('<br>') : 'nenhuma encontrada'],
+    ['Contas irregulares (TCU)', c => c.contas.length ? `<span class="etiqueta perigo">${c.contas.length} processo(s)</span>` : (app.estado.tcuVerificado ? 'Não consta' : '–')],
+    ['Situação', c => esc(c.elegibilidadeTexto)],
+    ['Idade', c => c.idade != null ? c.idade + ' anos' : '–'],
+    ['Escolaridade', c => esc(c.escolaridade)],
+    ['Bens declarados', c => moeda(c.patrimonio)],
+    ...app.estado.indicadores.map(ind => [ind.titulo, c => {
+      const v = c.indicadores[ind.codigo];
+      return v.temDados ? `<strong>${esc(v.texto)}</strong><br><small>${esc(v.resumo)}</small>` : '<span class="fraco"><em>sem dados</em></span>';
+    }]),
+  ];
+  const series = perfis.map((c, i) => ({
+    nome: c.nome, cor: CORES[i],
+    valores: app.estado.indicadores.map(ind => {
+      const n = notas[c.sq]?.[ind.codigo]?.nota;
+      return n == null ? null : Math.round(n * 100);
+    }),
+  }));
+  alvo.innerHTML = `
+    <div class="cartao rolagem-x"><table class="tabela">
+      <tr><th></th>${perfis.map((c, i) => `<th><a href="#/candidato/${esc(c.sq)}" style="color:${CORES[i]}">${esc(c.nome)}</a></th>`).join('')}</tr>
+      ${linhas.map(([rot, f]) => `<tr><th>${esc(rot)}</th>${perfis.map(c => `<td>${f(c)}</td>`).join('')}</tr>`).join('')}
+    </table></div>
+    <div class="cartao grafico" style="margin-top:16px">
+      <h2>Posição em cada critério</h2>
+      <p class="fraco">0 = pior e 100 = melhor entre os candidatos ao <strong>mesmo cargo</strong>, no sentido padrão de cada critério. “s/d” = sem dados (não é zero).</p>
+      <div class="legenda">${series.map(s => `<span style="--cor:${s.cor}">${esc(s.nome)}</span>`).join('')}</div>
+      ${graficoBarras(app.estado.indicadores.map(i => i.titulo), series, { maximo: 100 })}
+    </div>`;
+}
+
+// ------------------------------------------------------------ panorama
+
+const DISTRIBUICOES = [['experiencia', 'Experiência'], ['escolaridade', 'Escolaridade'], ['idade', 'Idade'],
+  ['patrimonio', 'Bens declarados'], ['genero', 'Gênero'], ['corRaca', 'Cor/raça'], ['partido', 'Partido'],
+  ['elegibilidade', 'Situação']];
+let panorama = { tipo: 'experiencia' };
+
+async function telaPanorama() {
+  const vars = await api('variaveis');
+  const cargo = app.config.panoramaCargo || 'TODOS';
+  const opcoes = sel => Object.entries(vars).map(([k, n]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  main().innerHTML = `
+    <h1>Panorama das candidaturas</h1>
+    <p class="fraco">Quem são as pessoas que disputam a eleição? Estes gráficos descrevem o grupo, sem avaliar ninguém.
+      Gênero e cor/raça aparecem só aqui e <strong>nunca</strong> entram na nota.</p>
+    <label for="pan-cargo">Cargo</label>
+    <select id="pan-cargo" style="max-width:360px;margin-bottom:16px"><option value="TODOS">Todos os cargos</option>
+      ${(app.estado.cargos || []).map(c => `<option value="${c.codigo}" ${c.codigo === cargo ? 'selected' : ''}>${esc(c.rotulo)}</option>`).join('')}</select>
+    <div class="cartao grafico">
+      <div class="chips" role="group" aria-label="Escolha o gráfico">${DISTRIBUICOES.map(([k, n]) => `<button data-d="${k}" aria-pressed="${k === panorama.tipo}">${n}</button>`).join('')}</div>
+      <div id="distribuicao"></div>
+    </div>
+    <div class="cartao grafico" style="margin-top:16px">
+      <h2>Uma coisa tem a ver com a outra?</h2>
+      <p class="fraco">Escolha duas informações. Cada ponto é uma pessoa que tem as duas.</p>
+      <div class="grade grade-2">
+        <div><label for="var-x">Eixo horizontal</label><select id="var-x">${opcoes('escolaridade')}</select></div>
+        <div><label for="var-y">Eixo vertical</label><select id="var-y">${opcoes('assiduidade')}</select></div>
+      </div>
+      <div id="dispersao" style="margin-top:12px"></div>
+    </div>`;
+  document.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-d]').forEach(x => x.setAttribute('aria-pressed', x === b));
+    panorama.tipo = b.dataset.d;
+    desenharDistribuicao();
+  }));
+  $('#pan-cargo').addEventListener('change', ev => { app.config.panoramaCargo = ev.target.value; salvarConfig(); desenharDistribuicao(); desenharDispersao(); });
+  $('#var-x').addEventListener('change', desenharDispersao);
+  $('#var-y').addEventListener('change', desenharDispersao);
+  await Promise.all([desenharDistribuicao(), desenharDispersao()]);
+}
+
+function cargoPanorama() {
+  const c = $('#pan-cargo').value;
+  return c === 'TODOS' ? {} : { cargo: c };
+}
+
+async function desenharDistribuicao() {
+  const d = await api('distribuicao', Object.assign({ tipo: panorama.tipo }, cargoPanorama()));
+  $('#distribuicao').innerHTML = `<h2>${esc(d.titulo)}</h2><p class="fraco">${d.total} candidaturas</p>`
+    + graficoBarras(d.barras.map(b => b.rotulo), [{ nome: 'Candidaturas', cor: CORES[0], valores: d.barras.map(b => b.valor) }], { rotulos: true });
+}
+
+async function desenharDispersao() {
+  const d = await api('correlacao', Object.assign({ x: $('#var-x').value, y: $('#var-y').value }, cargoPanorama()));
+  const r = d.r == null ? '–' : d.r.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+  $('#dispersao').innerHTML = graficoDispersao(d) + `
+    <p style="margin-top:10px"><strong>Correlação (r de Pearson) = ${r}</strong> com ${d.n} pessoas: ${esc(d.interpretacao)}.
+      ${d.n < 10 ? '<em>Poucas pessoas: interprete com muito cuidado.</em>' : ''}</p>
+    <p class="fraco">r vai de −1 a 1. Perto de 0 = sem relação linear. Mesmo uma correlação forte não prova que uma coisa causa a outra.</p>`;
+}
+
 // ------------------------------------------------------------ ranking
 
 async function telaRanking() {
-  const e = app.estado;
+  const cargo = cargoPadrao();
   main().innerHTML = `
     <h1>O que importa pra você?</h1>
     <p class="fraco">Escolha quanto cada critério pesa. A lista se reorganiza na hora.
       <a class="so-celular" href="#resultados-titulo">Ver a lista ↓</a></p>
+    <div class="linha-cargo"><label for="rk-cargo">Comparar candidatos a</label>
+      <select id="rk-cargo">${cargosPrincipais().map(c => `<option value="${c.codigo}" ${c.codigo === cargo ? 'selected' : ''}>${esc(c.rotulo)} (${c.total})</option>`).join('')}</select></div>
+    <p class="caixa-info" id="aviso-cargo" hidden></p>
     <div class="layout-ranking">
       <aside class="cartao painel-pesos" aria-label="Critérios">
         <div id="criterios"></div>
@@ -229,6 +638,8 @@ async function telaRanking() {
   $('#opt-cobertura').addEventListener('change', ev => { app.config.cobertura = +ev.target.value; mudouConfig(); });
   $('#opt-metodo').addEventListener('change', ev => { app.config.metodo = ev.target.value; mudouConfig(); });
   $('#filtro').addEventListener('input', () => desenharResultados());
+  $('#rk-cargo').addEventListener('change', ev => { app.config.cargo = ev.target.value; mudouConfig(); avisoCargo(); });
+  avisoCargo();
   await carregarRanking();
 }
 
@@ -269,6 +680,14 @@ function desenharCriterios() {
   }));
 }
 
+function avisoCargo() {
+  const c = app.config.cargo || cargoPadrao();
+  const aviso = $('#aviso-cargo');
+  aviso.hidden = c === 'DEPUTADO_FEDERAL';
+  aviso.textContent = 'Os critérios de presença, verba e projetos vêm da Câmara dos Deputados: para este cargo, só quem é '
+    + 'deputado(a) federal hoje tem esses dados. Veja a trajetória de todos na página Candidatos.';
+}
+
 let temporizador;
 function mudouConfig() {
   salvarConfig();
@@ -278,7 +697,8 @@ function mudouConfig() {
 
 let ultimoRanking = null;
 async function carregarRanking() {
-  const p = { inaptos: app.config.inaptos ? 1 : 0, cobertura: app.config.cobertura, metodo: app.config.metodo };
+  const p = { inaptos: app.config.inaptos ? 1 : 0, cobertura: app.config.cobertura, metodo: app.config.metodo,
+    cargo: app.config.cargo || cargoPadrao() };
   app.estado.indicadores.forEach(ind => {
     p['peso.' + ind.codigo] = pesoDe(ind.codigo);
     if (app.config.invertidos[ind.codigo]) p['inv.' + ind.codigo] = 1;
@@ -307,7 +727,8 @@ function desenharResultados() {
       <div class="posicao">${temNota ? c.posicao + 'º' : '–'}</div>
       ${avatar(c)}
       <div>
-        <div class="nome-linha"><h3>${esc(c.nome)}</h3><small>Nº ${esc(c.numero)} · ${esc(c.partido)}</small> ${etiquetas(c)}</div>
+        <div class="nome-linha"><h3>${esc(c.nome)}</h3><small>Nº ${esc(c.numero)} · ${esc(c.partido)}</small></div>
+        <div class="etiquetas">${seloExperiencia(c)} ${etiquetas(c)}</div>
         <div class="nota">${temNota
           ? `<div class="barra" role="img" aria-label="Nota ${Math.round(c.pontuacao)} de 100"><span style="width:${c.pontuacao}%"></span></div><strong>${Math.round(c.pontuacao)}</strong><small>com ${c.cobertura} de ${c.coberturaPedida} critérios</small>`
           : `<small>Sem nota: dados em ${c.cobertura} de ${c.coberturaPedida} critérios escolhidos</small>`}</div>
@@ -327,89 +748,6 @@ function desenharResultados() {
   }));
 }
 
-function alternarComparacao(sq) {
-  if (app.comparar.includes(sq)) {
-    app.comparar = app.comparar.filter(s => s !== sq);
-  } else {
-    if (app.comparar.length >= 3) app.comparar.shift();
-    app.comparar.push(sq);
-  }
-  gravarLocal('comparar', app.comparar);
-}
-
-// ------------------------------------------------------------ perfil
-
-async function telaCandidato([sq]) {
-  const c = await api('candidato', { sq: decodeURIComponent(sq || '') });
-  const inds = app.estado.indicadores.map(ind => {
-    const v = c.indicadores[ind.codigo];
-    return `<div class="cartao indicador-cartao ${v.temDados ? '' : 'sem'}">
-      <h3><span>${esc(ind.titulo)}</span></h3>
-      <div class="valor">${esc(v.temDados ? v.texto : 'Sem dados')}</div>
-      <p>${esc(v.temDados ? v.resumo : v.detalhe)}</p>
-      ${v.temDados ? `<small>Como calculamos: ${esc(v.detalhe)}</small><br>` : ''}
-      <small>Fonte: ${esc(ind.fonte)}</small>
-    </div>`;
-  }).join('');
-  const dep = c.deputado;
-  const naLista = app.comparar.includes(c.sq);
-  main().innerHTML = `
-    <p><button class="botao discreto" id="voltar">← Voltar</button></p>
-    <section class="cartao perfil-topo">
-      ${avatar(c, true)}
-      <div style="flex:1;min-width:240px">
-        <h1 style="margin-bottom:4px">${esc(c.nome)}</h1>
-        <p class="fraco" style="margin-bottom:6px">${esc(c.nomeCivil)} · ${esc(c.partido)}</p>
-        <div>${etiquetas(c)}</div>
-      </div>
-      <div style="text-align:center"><small>Número na urna</small><div class="numero-urna">${esc(c.numero)}</div></div>
-    </section>
-    ${c.elegibilidade !== 'APTA' ? `<p class="${c.elegibilidade === 'INAPTA' ? 'caixa-erro' : 'caixa-alerta'}" style="margin-top:16px"><strong>Situação: ${esc(c.elegibilidadeTexto)}.</strong> ${esc(c.elegibilidadeExplicacao)}</p>` : ''}
-    <h2 style="margin-top:28px">O que os dados mostram</h2>
-    ${dep ? '' : '<p class="caixa-info">Esta pessoa não exerceu mandato de deputado(a) federal na legislatura analisada, por isso não há dados da Câmara. Isso não é uma nota ruim.</p>'}
-    ${dep && c.vinculoDuvidoso ? `<p class="caixa-alerta">Ligamos esta candidatura ao mandato de <strong>${esc(dep.nome)}</strong> só pelo nome. Confira se é a mesma pessoa antes de usar os números da Câmara.</p>` : ''}
-    <div class="grade grade-3">${inds}</div>
-    ${dep ? `<h2 style="margin-top:28px">Projetos aprovados (${c.totalAprovadas})</h2>
-      ${c.aprovadas.length ? `<ul>${c.aprovadas.map(p => `<li><strong>${esc(p.identificacao)}</strong> – ${esc(p.ementa)} <small>(${esc(p.situacao)})</small></li>`).join('')}</ul>`
-        : '<p class="fraco">Nenhum projeto de autoria aprovado no período analisado.</p>'}
-      <p><a href="${esc(dep.url)}" target="_blank" rel="noopener">Ver página oficial na Câmara ↗</a></p>` : ''}
-    <h2 style="margin-top:28px">Trajetória política</h2>
-    ${trajetoriaHtml(c)}
-    <h2 style="margin-top:28px">Sobre a candidatura</h2>
-    <div class="cartao rolagem-x"><table class="tabela">
-      <tr><th>Idade na eleição</th><td>${c.idade != null ? c.idade + ' anos' : 'não informada'}</td></tr>
-      <tr><th>Escolaridade (declarada)</th><td>${esc(c.escolaridade)}</td></tr>
-      <tr><th>Ocupação (declarada)</th><td>${esc(c.ocupacao || 'não informada')}</td></tr>
-      <tr><th>Bens declarados em ${c.anoEleicao}</th><td>${moeda(c.patrimonio)}</td></tr>
-      <tr><th>Bens declarados em ${c.anoAnterior}</th><td>${c.patrimonioAnterior != null ? moeda(c.patrimonioAnterior) : 'não concorreu ou não declarou'}</td></tr>
-      <tr><th>Situação no TSE</th><td>${esc([c.situacao, c.detalheSituacao].filter(Boolean).join(' – ') || 'não informada')}</td></tr>
-      <tr><th>Gênero / cor ou raça</th><td>${esc(c.genero || '–')} / ${esc(c.corRaca || '–')} <small>(só aparecem no Panorama; nunca entram na nota)</small></td></tr>
-      ${dep ? `<tr><th>Ligação com a Câmara</th><td>${esc(dep.nome)} (${esc(dep.partido)}-${esc(dep.uf)}), por ${esc(dep.criterioVinculo)}</td></tr>` : ''}
-    </table></div>
-    <p style="margin-top:20px"><button class="botao" id="btn-comparar">${naLista ? '✓ Está na comparação' : '+ Adicionar à comparação'}</button>
-      <a class="botao secundario" href="#/comparar">Ir para comparação</a></p>`;
-  $('#btn-comparar').addEventListener('click', () => { alternarComparacao(c.sq); telaCandidato([c.sq]); });
-  $('#voltar').addEventListener('click', () => { if (history.length > 1) history.back(); else location.hash = '#/ranking'; });
-}
-
-function trajetoriaHtml(c) {
-  const periodo = `nas eleições de ${c.trajetoriaDe} a ${c.trajetoriaAte}`;
-  if (!c.trajetoria.length) {
-    return `<p class="caixa-info">Não encontramos outras candidaturas desta pessoa ${periodo} neste estado.
-      Pode ser a primeira eleição, ou ela concorreu em outro estado.</p>`;
-  }
-  const itens = c.trajetoria.map(t => {
-    const exercendo = t.eleito && t.fimMandato >= app.estado.anoEleicao && t.ano < app.estado.anoEleicao;
-    const cls = t.eleito ? 'ok' : t.resultado === 'Suplente' ? 'alerta' : '';
-    return `<li class="marco"><span class="ano">${t.ano}</span>
-      <div><strong>${esc(t.cargoTexto)}</strong>${t.local ? ' em ' + esc(t.local) : ''} · ${esc(t.partido)}
-        <span class="etiqueta ${cls}">${esc(t.resultado)}</span>
-        ${exercendo ? `<br><small>Mandato até ${t.fimMandato}${t.cargo === 'DEPUTADO FEDERAL' ? '' : ' — os dados da atuação neste cargo não estão nas fontes usadas'}</small>` : ''}</div></li>`;
-  }).join('');
-  return `<div class="cartao"><ol class="linha-tempo">${itens}</ol>
-    <small>Fonte: TSE, candidaturas ${periodo}, mesmo estado. Ligamos as candidaturas pelo CPF ou, quando o TSE
-    não publica o CPF (2024), pelo nome completo + data de nascimento.</small></div>`;
-}
 
 // ------------------------------------------------------------ opiniões
 
@@ -501,117 +839,6 @@ async function responder(id, voto) {
   } catch (e) {
     alert(e.message);
   }
-}
-
-// ------------------------------------------------------------ comparar
-
-async function telaComparar() {
-  const todos = await listaCandidatos();
-  const opcoes = sel => '<option value="">— escolher —</option>' + todos.map(c => `<option value="${esc(c.sq)}" ${c.sq === sel ? 'selected' : ''}>${esc(c.nome)} (${esc(c.partido)} ${esc(c.numero)})</option>`).join('');
-  main().innerHTML = `
-    <h1>Comparar candidatos</h1>
-    <p class="fraco">Escolha até 3 pessoas. Você também pode adicionar pela lista ou pelo perfil.</p>
-    <div class="grade grade-3">${[0, 1, 2].map(i => `<select data-i="${i}" aria-label="Candidato ${i + 1}">${opcoes(app.comparar[i])}</select>`).join('')}</div>
-    <div id="comparacao" style="margin-top:20px"></div>`;
-  document.querySelectorAll('select[data-i]').forEach(s => s.addEventListener('change', () => {
-    const escolhidos = [...document.querySelectorAll('select[data-i]')].map(x => x.value).filter(Boolean);
-    app.comparar = [...new Set(escolhidos)];
-    gravarLocal('comparar', app.comparar);
-    desenharComparacao();
-  }));
-  await desenharComparacao();
-}
-
-async function desenharComparacao() {
-  const alvo = $('#comparacao');
-  if (!app.comparar.length) { alvo.innerHTML = '<p class="caixa-info">Nenhuma pessoa escolhida ainda.</p>'; return; }
-  // notas normalizadas de todos os critérios, com o mesmo peso, só para o gráfico
-  const p = { inaptos: 1, cobertura: 1 };
-  app.estado.indicadores.forEach(ind => { p['peso.' + ind.codigo] = 10; });
-  const [ranking, ...perfis] = await Promise.all([api('ranking', p), ...app.comparar.map(sq => api('candidato', { sq }))]);
-  const notas = Object.fromEntries(ranking.itens.map(i => [i.sq, i.indicadores]));
-  const linhas = [
-    ['Número / partido', c => `<strong>${esc(c.numero)}</strong> · ${esc(c.partido)}`],
-    ['Situação', c => esc(c.elegibilidadeTexto)],
-    ['Já é deputado(a)?', c => c.mandato ? 'Sim' : 'Não'],
-    ['Outro mandato hoje', c => c.mandatoAtual && !c.mandato ? esc(c.mandatoAtual) : '–'],
-    ['Eleições anteriores', c => c.trajetoria.length ? c.trajetoria.map(t => `${t.ano}: ${esc(t.cargoTexto)} – ${esc(t.resultado)}`).join('<br>') : 'nenhuma encontrada'],
-    ['Idade', c => c.idade != null ? c.idade + ' anos' : '–'],
-    ['Escolaridade', c => esc(c.escolaridade)],
-    ['Bens declarados', c => moeda(c.patrimonio)],
-    ...app.estado.indicadores.map(ind => [ind.titulo, c => {
-      const v = c.indicadores[ind.codigo];
-      return v.temDados ? `<strong>${esc(v.texto)}</strong><br><small>${esc(v.resumo)}</small>` : '<span class="fraco"><em>sem dados</em></span>';
-    }]),
-  ];
-  const series = perfis.map((c, i) => ({
-    nome: c.nome, cor: CORES[i],
-    valores: app.estado.indicadores.map(ind => {
-      const n = notas[c.sq]?.[ind.codigo]?.nota;
-      return n == null ? null : Math.round(n * 100);
-    }),
-  }));
-  alvo.innerHTML = `
-    <div class="cartao rolagem-x"><table class="tabela">
-      <tr><th></th>${perfis.map((c, i) => `<th><a href="#/candidato/${esc(c.sq)}" style="color:${CORES[i]}">${esc(c.nome)}</a></th>`).join('')}</tr>
-      ${linhas.map(([rot, f]) => `<tr><th>${esc(rot)}</th>${perfis.map(c => `<td>${f(c)}</td>`).join('')}</tr>`).join('')}
-    </table></div>
-    <div class="cartao grafico" style="margin-top:16px">
-      <h2>Posição em cada critério</h2>
-      <p class="fraco">0 = pior e 100 = melhor entre <strong>todos</strong> os candidatos do estado, no sentido padrão de cada critério. “s/d” = sem dados (não é zero).</p>
-      <div class="legenda">${series.map(s => `<span style="--cor:${s.cor}">${esc(s.nome)}</span>`).join('')}</div>
-      ${graficoBarras(app.estado.indicadores.map(i => i.titulo), series, { maximo: 100 })}
-    </div>`;
-}
-
-// ------------------------------------------------------------ panorama
-
-const DISTRIBUICOES = [['escolaridade', 'Escolaridade'], ['idade', 'Idade'], ['patrimonio', 'Bens declarados'],
-  ['genero', 'Gênero'], ['corRaca', 'Cor/raça'], ['partido', 'Partido'], ['experiencia', 'Experiência'],
-  ['mandato', 'Já é deputado?'], ['elegibilidade', 'Situação']];
-
-async function telaPanorama() {
-  const vars = await api('variaveis');
-  const opcoes = sel => Object.entries(vars).map(([k, n]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${esc(n)}</option>`).join('');
-  main().innerHTML = `
-    <h1>Panorama das candidaturas</h1>
-    <p class="fraco">Quem são as pessoas que disputam a eleição? Estes gráficos descrevem o grupo, sem avaliar ninguém.
-      Gênero e cor/raça aparecem só aqui e <strong>nunca</strong> entram na nota.</p>
-    <div class="cartao grafico">
-      <div class="chips" role="group" aria-label="Escolha o gráfico">${DISTRIBUICOES.map(([k, n], i) => `<button data-d="${k}" aria-pressed="${i === 0}">${n}</button>`).join('')}</div>
-      <div id="distribuicao"></div>
-    </div>
-    <div class="cartao grafico" style="margin-top:16px">
-      <h2>Uma coisa tem a ver com a outra?</h2>
-      <p class="fraco">Escolha duas informações. Cada ponto é uma pessoa que tem as duas.</p>
-      <div class="grade grade-2">
-        <div><label for="var-x">Eixo horizontal</label><select id="var-x">${opcoes('escolaridade')}</select></div>
-        <div><label for="var-y">Eixo vertical</label><select id="var-y">${opcoes('assiduidade')}</select></div>
-      </div>
-      <div id="dispersao" style="margin-top:12px"></div>
-    </div>`;
-  document.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => {
-    document.querySelectorAll('[data-d]').forEach(x => x.setAttribute('aria-pressed', x === b));
-    desenharDistribuicao(b.dataset.d);
-  }));
-  $('#var-x').addEventListener('change', desenharDispersao);
-  $('#var-y').addEventListener('change', desenharDispersao);
-  await Promise.all([desenharDistribuicao('escolaridade'), desenharDispersao()]);
-}
-
-async function desenharDistribuicao(tipo) {
-  const d = await api('distribuicao', { tipo });
-  $('#distribuicao').innerHTML = `<h2>${esc(d.titulo)}</h2><p class="fraco">${d.total} candidaturas</p>`
-    + graficoBarras(d.barras.map(b => b.rotulo), [{ nome: 'Candidaturas', cor: CORES[0], valores: d.barras.map(b => b.valor) }], { rotulos: true });
-}
-
-async function desenharDispersao() {
-  const d = await api('correlacao', { x: $('#var-x').value, y: $('#var-y').value });
-  const r = d.r == null ? '–' : d.r.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-  $('#dispersao').innerHTML = graficoDispersao(d) + `
-    <p style="margin-top:10px"><strong>Correlação (r de Pearson) = ${r}</strong> com ${d.n} pessoas: ${esc(d.interpretacao)}.
-      ${d.n < 10 ? '<em>Poucas pessoas: interprete com muito cuidado.</em>' : ''}</p>
-    <p class="fraco">r vai de −1 a 1. Perto de 0 = sem relação linear. Mesmo uma correlação forte não prova que uma coisa causa a outra.</p>`;
 }
 
 // ------------------------------------------------------------ gráficos SVG

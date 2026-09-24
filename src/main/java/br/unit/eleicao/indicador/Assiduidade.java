@@ -29,6 +29,11 @@ public class Assiduidade extends Indicador {
         if (d == null) {
             return semMandato();
         }
+        return calcularPara(d, base);
+    }
+
+    /** Presença de um deputado numa base (serve também para legislaturas anteriores). */
+    public static ResultadoIndicador calcularPara(Deputado d, BaseDados base) {
         Map<String, String> votos = base.getVotosDe(d.getId());
         if (votos.isEmpty()) {
             return ResultadoIndicador.semDados("Nenhum voto nominal registrado no Plenário");
@@ -37,7 +42,7 @@ public class Assiduidade extends Indicador {
     }
 
     /** Denominador = votações ocorridas enquanto o deputado estava em exercício (histórico da Câmara). */
-    private ResultadoIndicador porExercicio(Deputado d, Map<String, String> votos, BaseDados base) {
+    private static ResultadoIndicador porExercicio(Deputado d, Map<String, String> votos, BaseDados base) {
         int possiveis = 0;
         int presentes = 0;
         for (Votacao v : base.getVotacoesOrdenadas()) {
@@ -56,7 +61,7 @@ public class Assiduidade extends Indicador {
     }
 
     /** Aproximação quando não há histórico: votações entre o primeiro e o último voto registrado. */
-    private ResultadoIndicador porPrimeiroEUltimoVoto(Map<String, String> votos, BaseDados base) {
+    private static ResultadoIndicador porPrimeiroEUltimoVoto(Map<String, String> votos, BaseDados base) {
         LocalDate inicio = null;
         LocalDate fim = null;
         int presentes = 0;

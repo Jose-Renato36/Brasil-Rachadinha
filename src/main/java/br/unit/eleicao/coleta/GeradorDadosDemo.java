@@ -4,6 +4,8 @@ import br.unit.eleicao.excecao.DadosException;
 import br.unit.eleicao.modelo.BaseDados;
 import br.unit.eleicao.modelo.Candidato;
 import br.unit.eleicao.modelo.CandidaturaAnterior;
+import br.unit.eleicao.modelo.ContaIrregular;
+import br.unit.eleicao.modelo.ResumoMandato;
 import br.unit.eleicao.modelo.Deputado;
 import br.unit.eleicao.modelo.Despesa;
 import br.unit.eleicao.modelo.GrauInstrucao;
@@ -44,6 +46,7 @@ public class GeradorDadosDemo {
     public BaseDados gerar() {
         Metadados meta = new Metadados("XX", 2026, 2022, PipelineColeta.dataPrimeiroTurno(2026));
         meta.setDemonstracao(true);
+        meta.setTcuVerificado(true);
         meta.setDescricao("DADOS FICTÍCIOS de demonstração - não representam pessoas reais");
         meta.setGeradoEm("gerador com semente fixa " + SEMENTE);
         BaseDados base = new BaseDados(meta);
@@ -69,6 +72,7 @@ public class GeradorDadosDemo {
         for (int i = 0; i < NOMES.length; i++) {
             base.adicionarCandidato(gerarCandidato(i, i < 9 ? deputados.get(i) : null));
         }
+        gerarOutrosCargos(base, deputados);
         return base;
     }
 
@@ -199,6 +203,98 @@ public class GeradorDadosDemo {
                     c.getPartido(), "Não eleito(a)"));
         }
         return c;
+    }
+
+    private static final String[] OUTROS_NOMES = {"Beatriz", "Caio", "Denise", "Eduardo", "Fernanda", "Gustavo",
+        "Helena", "Igor", "Joana", "Kleber", "Laura", "Marcelo", "Natália", "Otávio", "Priscila", "Renato", "Sabrina",
+        "Tomás", "Valéria", "Wagner", "Yasmin", "Zilda", "André", "Bianca", "Cláudio"};
+
+    /** Governo, Senado e Assembleia, com trajetórias que mostram cada tipo de dado da interface. */
+    private void gerarOutrosCargos(BaseDados base, List<Deputado> deputados) {
+        String[] cargos = {"GOVERNADOR", "GOVERNADOR", "GOVERNADOR", "GOVERNADOR", "SENADOR", "SENADOR", "SENADOR",
+            "SENADOR", "SENADOR"};
+        int numero = 10;
+        for (int i = 0; i < OUTROS_NOMES.length; i++) {
+            String cargo = i < cargos.length ? cargos[i] : "DEPUTADO ESTADUAL";
+            Candidato c = new Candidato("DEMO" + (2000 + i), OUTROS_NOMES[i] + " Souza Exemplo",
+                    OUTROS_NOMES[i] + " Exemplo", nascimento(), rnd.nextDouble() < 0.4 ? "FEMININO" : "MASCULINO");
+            c.setCargo(cargo);
+            c.setUf("XX");
+            c.setPartido(PARTIDOS[rnd.nextInt(PARTIDOS.length)]);
+            c.setNumero(cargo.equals("GOVERNADOR") ? String.valueOf(numero++) : cargo.equals("SENADOR")
+                    ? String.valueOf(100 + i * 11) : String.valueOf(10000 + i * 137));
+            c.setGrauInstrucao(escolaridade());
+            c.setCorRaca(rnd.nextDouble() < 0.08 ? CORES[3 + rnd.nextInt(2)] : CORES[rnd.nextInt(3)]);
+            c.setOcupacao(OCUPACOES[rnd.nextInt(OCUPACOES.length)]);
+            c.setSituacao("APTO");
+            c.setDetalheSituacao("DEFERIDO");
+            double patrimonio = Math.round(Math.exp(12 + 1.5 * rnd.nextGaussian()));
+            c.setPatrimonio(patrimonio);
+            if (i % 2 == 0) {
+                c.setPatrimonioAnterior((double) Math.round(patrimonio / (0.7 + 0.9 * rnd.nextDouble())));
+            }
+            switch (i) {
+                case 0: // ex-prefeito, hoje sem mandato, com contas julgadas irregulares (fictício)
+                    c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2020, "PREFEITO", "CIDADE FICTÍCIA",
+                            c.getPartido(), "Eleito(a)"));
+                    c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2024, "PREFEITO", "CIDADE FICTÍCIA",
+                            c.getPartido(), "Não eleito(a)"));
+                    c.adicionarContaIrregular(new ContaIrregular("TC 000.000/2021-0 (FICTÍCIO)",
+                            "Acórdão 0000/2023 (FICTÍCIO)", "10/05/2023", "CIDADE FICTÍCIA/XX", "CPF"));
+                    break;
+                case 1: // deputado federal atual disputando o governo: usa os dados da Câmara
+                    c.vincularDeputado(deputados.get(9).getId(), "DEMONSTRAÇÃO");
+                    c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2022, "DEPUTADO FEDERAL", "",
+                            c.getPartido(), "Eleito(a)"));
+                    break;
+                case 2: // governador tentando a reeleição
+                    c.setReeleicao(true);
+                    c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2022, "GOVERNADOR", "", c.getPartido(),
+                            "Eleito(a)"));
+                    c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2018, "SENADOR", "", c.getPartido(),
+                            "Não eleito(a)"));
+                    break;
+                case 4: // senador em exercício
+                    c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2018, "SENADOR", "", c.getPartido(),
+                            "Eleito(a)"));
+                    c.adicionarAtuacao(resumoDemo("Senado Federal", "Senador(a)", "2019–hoje", 71.4, 38, 0));
+                    break;
+                case 5: // ex-deputado federal (2019-2023)
+                    c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2018, "DEPUTADO FEDERAL", "",
+                            c.getPartido(), "Eleito(a)"));
+                    c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2022, "DEPUTADO FEDERAL", "",
+                            c.getPartido(), "Suplente"));
+                    c.adicionarAtuacao(resumoDemo("Câmara dos Deputados", "Deputado(a) federal", "2019–2023", 88.2,
+                            27, 2));
+                    break;
+                case 6: // vice-prefeita eleita em 2024
+                    c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2024, "VICE-PREFEITO",
+                            "OUTRA CIDADE FICTÍCIA", c.getPartido(), "Eleito(a)"));
+                    break;
+                default:
+                    if (i >= cargos.length && i % 3 == 0) {
+                        c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2022, "DEPUTADO ESTADUAL", "",
+                                c.getPartido(), "Eleito(a)"));
+                    } else if (i >= cargos.length && i % 3 == 1) {
+                        c.adicionarCandidaturaAnterior(new CandidaturaAnterior(2024, "VEREADOR", "CIDADE FICTÍCIA",
+                                c.getPartido(), i % 2 == 0 ? "Eleito(a)" : "Não eleito(a)"));
+                    }
+            }
+            base.adicionarCandidato(c);
+        }
+    }
+
+    private ResumoMandato resumoDemo(String casa, String cargo, String periodo, double presenca, int projetos,
+                                     int aprovados) {
+        ResumoMandato r = new ResumoMandato(casa, cargo, periodo, "");
+        r.setPresenca(presenca, "[FICTÍCIO] Votou em " + Math.round(presenca) + "% das votações nominais do período");
+        r.setProjetos(projetos, aprovados);
+        r.setGastoMensal(casa.startsWith("Câmara") ? 31_200.0 + rnd.nextInt(8000) : null);
+        for (int k = 0; k < 3; k++) {
+            r.adicionarDestaque("PL " + (1000 + rnd.nextInt(4000)) + "/2020" + (k < aprovados ? " (aprovado)" : "")
+                    + " – [FICTÍCIO] Dispõe sobre " + TEMAS[rnd.nextInt(TEMAS.length)] + ".");
+        }
+        return r;
     }
 
     private LocalDate nascimento() {

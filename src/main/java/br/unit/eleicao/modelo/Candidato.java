@@ -26,6 +26,8 @@ public class Candidato extends Pessoa {
     private Double patrimonio;
     private Double patrimonioAnterior;
     private final List<CandidaturaAnterior> trajetoria = new ArrayList<>();
+    private final List<ResumoMandato> atuacao = new ArrayList<>();
+    private final List<ContaIrregular> contasIrregulares = new ArrayList<>();
     private Integer idDeputado;
     private String criterioVinculo;
 
@@ -116,6 +118,10 @@ public class Candidato extends Pessoa {
         this.uf = uf;
     }
 
+    public Cargo getTipoCargo() {
+        return Cargo.de(cargo);
+    }
+
     public String getCargo() {
         return cargo;
     }
@@ -187,6 +193,23 @@ public class Candidato extends Pessoa {
 
     public void setPatrimonioAnterior(Double patrimonioAnterior) {
         this.patrimonioAnterior = patrimonioAnterior;
+    }
+
+    public void adicionarAtuacao(ResumoMandato r) {
+        atuacao.add(r);
+    }
+
+    /** Resumos de mandatos legislativos com dados abertos (Câmara 2019-2022, Senado). */
+    public List<ResumoMandato> getAtuacao() {
+        return Collections.unmodifiableList(atuacao);
+    }
+
+    public void adicionarContaIrregular(ContaIrregular c) {
+        contasIrregulares.add(c);
+    }
+
+    public List<ContaIrregular> getContasIrregulares() {
+        return Collections.unmodifiableList(contasIrregulares);
     }
 
     public void adicionarCandidaturaAnterior(CandidaturaAnterior c) {

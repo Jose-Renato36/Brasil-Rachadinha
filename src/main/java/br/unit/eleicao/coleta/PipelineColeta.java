@@ -86,6 +86,10 @@ public class PipelineColeta {
         new ProcessadorTrajetoria(pastaBrutos(), uf, log).processar(new ArrayList<>(base.getCandidatos()),
                 tse.getCpfPorSq(), ProcessadorTrajetoria.anosAnteriores(anoEleicao));
 
+        log.accept("Verificando contas julgadas irregulares pelo TCU...");
+        meta.setTcuVerificado(new ContasIrregularesTcu(pastaBrutos(), log)
+                .processar(new ArrayList<>(base.getCandidatos()), tse.getCpfPorSq()));
+
         log.accept("Processando Câmara...");
         ProcessadorCamara camara = new ProcessadorCamara(pastaBrutos(), uf, anos, legislatura(anoEleicao),
                 inicioLegislatura(anoEleicao), log);
@@ -95,6 +99,14 @@ public class PipelineColeta {
         LocalDate fim = LocalDate.now().isBefore(meta.getDataEleicao()) ? LocalDate.now() : meta.getDataEleicao();
         new HistoricoDeputados(pastaBrutos(), baixar ? new Downloader(log) : null, log)
                 .preencher(camara.getDeputados().values(), legislatura(anoEleicao), inicioLegislatura(anoEleicao), fim);
+
+        log.accept("Resumindo mandatos anteriores na Câmara (" + MandatoAnteriorCamara.anos(anoEleicao)[0] + "-"
+                + (anoEleicao - 4) + ")...");
+        new MandatoAnteriorCamara(pastaBrutos(), uf, log).processar(new ArrayList<>(base.getCandidatos()),
+                tse.getCpfPorSq(), anoEleicao, baixar ? new Downloader(log) : null);
+        log.accept("Consultando o Senado...");
+        new MandatoSenado(pastaBrutos(), uf, baixar ? new Downloader(log) : null, log)
+                .processar(new ArrayList<>(base.getCandidatos()));
 
         log.accept("Cruzando candidaturas com deputados...");
         CruzadorIdentidades cruzador = new CruzadorIdentidades();
@@ -139,7 +151,16 @@ public class PipelineColeta {
                 opcionais.add(FontesDados.candidatos(ano)); // trajetória (anoAnterior já está na lista)
             }
         }
+        opcionais.add(ContasIrregularesTcu.URL);
+        // legislatura anterior (resumo do mandato de ex-deputados federais) + atual
+        List<Integer> anosCamara = new ArrayList<>();
+        for (int ano : MandatoAnteriorCamara.anos(anoEleicao)) {
+            anosCamara.add(ano);
+        }
         for (int ano : anos) {
+            anosCamara.add(ano);
+        }
+        for (int ano : anosCamara) {
             opcionais.add(FontesDados.votacoes(ano));
             opcionais.add(FontesDados.votos(ano));
             opcionais.add(FontesDados.votacoesProposicoes(ano));

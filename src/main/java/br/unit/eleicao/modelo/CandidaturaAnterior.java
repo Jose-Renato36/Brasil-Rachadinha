@@ -8,9 +8,6 @@ import br.unit.eleicao.util.Texto;
  */
 public class CandidaturaAnterior implements Comparable<CandidaturaAnterior> {
 
-    /** Cargos disputados nas eleições municipais (mandato começa no ano seguinte e dura 4 anos). */
-    private static final String[] CARGOS_MUNICIPAIS = {"PREFEITO", "VICE PREFEITO", "VEREADOR"};
-
     private final int ano;
     private final String cargo;
     private final String local;
@@ -45,34 +42,12 @@ public class CandidaturaAnterior implements Comparable<CandidaturaAnterior> {
 
     /** Nome do cargo em linguagem comum, com flexão de gênero neutra (ex.: "Deputado(a) estadual"). */
     public String getCargoLegivel() {
-        switch (Texto.normalizar(cargo)) {
-            case "DEPUTADO FEDERAL":
-                return "Deputado(a) federal";
-            case "DEPUTADO ESTADUAL":
-                return "Deputado(a) estadual";
-            case "DEPUTADO DISTRITAL":
-                return "Deputado(a) distrital";
-            case "VEREADOR":
-                return "Vereador(a)";
-            case "PREFEITO":
-                return "Prefeito(a)";
-            case "VICE PREFEITO":
-                return "Vice-prefeito(a)";
-            case "SENADOR":
-                return "Senador(a)";
-            case "GOVERNADOR":
-                return "Governador(a)";
-            case "VICE GOVERNADOR":
-                return "Vice-governador(a)";
-            case "1O SUPLENTE":
-            case "1 SUPLENTE":
-                return "1º suplente de senador(a)";
-            case "2O SUPLENTE":
-            case "2 SUPLENTE":
-                return "2º suplente de senador(a)";
-            default:
-                return cargo.isEmpty() ? "" : cargo.charAt(0) + cargo.substring(1).toLowerCase();
-        }
+        Cargo c = getTipoCargo();
+        return c == Cargo.OUTRO ? cargo : c.getRotulo();
+    }
+
+    public Cargo getTipoCargo() {
+        return Cargo.de(cargo);
     }
 
     public boolean isEleito() {
@@ -80,13 +55,7 @@ public class CandidaturaAnterior implements Comparable<CandidaturaAnterior> {
     }
 
     public boolean isMunicipal() {
-        String c = Texto.normalizar(cargo);
-        for (String m : CARGOS_MUNICIPAIS) {
-            if (c.equals(m)) {
-                return true;
-            }
-        }
-        return false;
+        return getTipoCargo().isMunicipal();
     }
 
     /** Último ano do mandato conquistado (mandatos de 4 anos; senador tem 8). 0 se não foi eleito. */
@@ -94,7 +63,7 @@ public class CandidaturaAnterior implements Comparable<CandidaturaAnterior> {
         if (!isEleito()) {
             return 0;
         }
-        return ano + (Texto.normalizar(cargo).equals("SENADOR") ? 8 : 4);
+        return ano + getTipoCargo().getDuracao();
     }
 
     /** Frase para a tela, ex.: "2024 · Vereador(a) em ARACAJU · PXA · Eleito(a)". */

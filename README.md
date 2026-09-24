@@ -2,7 +2,8 @@
 
 Projeto da disciplina **Projeto de Programação** (Java). Um site que roda no seu computador
 (`http://localhost:8080`) e reúne dados públicos do **TSE** e da **Câmara dos Deputados** sobre as
-candidaturas a **deputado federal** de um estado. Quem usa escolhe o que é importante; o sistema calcula
+candidaturas de **todos os cargos** de um estado (governador, senador, deputado federal e estadual),
+com a trajetória política de cada pessoa e o que ela fez nos mandatos anteriores. Quem usa escolhe o que é importante; o sistema calcula
 indicadores e mostra de onde veio cada número.
 
 > O sistema **não diz quem é o melhor candidato**. O foco é a transparência do método, não um veredito.
@@ -36,7 +37,8 @@ A coleta também pode ser feita **pelo próprio site**, na aba **Dados**: escolh
 
 | Aba | Para quê |
 |---|---|
-| **Início** | busca por nome ou número e os três passos |
+| **Início** | busca por nome ou número e escolha do cargo |
+| **Candidatos** | todas as candidaturas do cargo em **cartões**: estreante, já concorreu, já eleito(a), com mandato hoje, e uma linha do tempo 2018–2024. Ao clicar, o cartão abre com a trajetória, o que fez nos mandatos (presença, projetos, verba), contas no TCU, bens e dados pessoais |
 | **O que importa pra mim** | para cada critério: *Não importa / Importa / Importa muito*; a lista se reorganiza na hora. Opções avançadas: pesos de 0 a 10, inverter o sentido, TOPSIS, cobertura mínima |
 | **Minhas opiniões** | projetos já votados no Plenário, um por vez: *Eu votaria SIM / NÃO / Pular*. Alimenta o critério "Vota como eu votaria" |
 | **Perfil** | número na urna, situação da candidatura, cada indicador com o cálculo e a fonte, projetos aprovados e a **trajetória política** (candidaturas e mandatos desde 2018, inclusive vereador, prefeito e deputado estadual) |
@@ -56,6 +58,8 @@ A coleta também pode ser feita **pelo próprio site**, na aba **Dados**: escolh
 | Vota como eu votaria | Câmara | % dos votos Sim/Não iguais às respostas do usuário |
 | Situação da candidatura | TSE | **filtro, não nota** (apta, em análise, com recurso, inapta) |
 | Trajetória política | TSE 2018-2024 | candidaturas anteriores e mandato atual; **contexto, não nota** |
+| Atuação em mandatos | Câmara 2019-2023 e 2023-hoje, API do Senado | presença, projetos, aprovados, verba; **contexto, não nota** |
+| Contas irregulares | TCU (lista da Ficha Limpa) | processos ligados pelo CPF; **contexto, não nota** |
 
 "Sem dados" nunca vira zero. Por padrão só recebe nota quem tem dados em pelo menos **2 critérios**,
 para um estreante não ficar em 1º lugar avaliado só pelo patrimônio. Gênero e cor/raça aparecem só no
@@ -118,7 +122,7 @@ src/main/resources/web/   index.html, estilo.css, app.js, metodologia.html
 
 ## Testes
 
-`mvn test` roda 40 testes: estatística, CSV, cada indicador (inclusive presença descontando licenças),
+`mvn test` roda 40 testes (a coleta completa inclui Senado e TCU em cache): estatística, CSV, cada indicador (inclusive presença descontando licenças),
 normalização, soma ponderada, TOPSIS, cobertura mínima, elegibilidade, histórico de deputados, trajetória
 política (CPF mascarado em 2024, 2º turno, homônimos), cruzamento
 de identidades, gravação/leitura, a coleta completa sobre arquivos no **layout real** do TSE 2026 (50

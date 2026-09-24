@@ -15,6 +15,7 @@ public class ConfiguracaoRanking {
     private final Map<String, Boolean> invertidos = new HashMap<>();
     private boolean ocultarInaptos = true;
     private int coberturaMinima = 1;
+    private br.unit.eleicao.modelo.Cargo cargo;
 
     public void setPeso(String codigo, int peso) {
         if (peso < 0 || peso > PESO_MAXIMO) {
@@ -53,6 +54,15 @@ public class ConfiguracaoRanking {
             throw new IllegalArgumentException("Cobertura mínima deve ser pelo menos 1: " + coberturaMinima);
         }
         this.coberturaMinima = coberturaMinima;
+    }
+
+    /** Só compara candidaturas deste cargo (null = todas). Governador se compara com governador. */
+    public br.unit.eleicao.modelo.Cargo getCargo() {
+        return cargo;
+    }
+
+    public void setCargo(br.unit.eleicao.modelo.Cargo cargo) {
+        this.cargo = cargo;
     }
 
     public boolean isOcultarInaptos() {

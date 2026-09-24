@@ -11,6 +11,10 @@ import br.unit.eleicao.indicador.ResultadoIndicador;
 import br.unit.eleicao.modelo.BaseDados;
 import br.unit.eleicao.modelo.Candidato;
 import br.unit.eleicao.modelo.CandidaturaAnterior;
+import br.unit.eleicao.modelo.Cargo;
+import br.unit.eleicao.modelo.ContaIrregular;
+import br.unit.eleicao.modelo.ResumoMandato;
+import br.unit.eleicao.coleta.MandatoAnteriorCamara;
 import br.unit.eleicao.modelo.Deputado;
 import br.unit.eleicao.modelo.Elegibilidade;
 import br.unit.eleicao.modelo.GrauInstrucao;
@@ -112,6 +116,12 @@ public class ServicoApi {
             r.put("demo", meta.isDemonstracao());
             r.put("descricao", meta.getDescricao());
             r.put("geradoEm", meta.getGeradoEm());
+            r.put("tcuVerificado", meta.isTcuVerificado());
+            List<Integer> anosTraj = new ArrayList<>();
+            for (int a : br.unit.eleicao.coleta.ProcessadorTrajetoria.anosAnteriores(meta.getAnoEleicao())) {
+                anosTraj.add(a);
+            }
+            r.put("anosTrajetoria", anosTraj);
             r.put("anoEleicao", meta.getAnoEleicao());
             r.put("anoAnterior", meta.getAnoAnterior());
             r.put("candidatos", base.getCandidatos().size());
@@ -119,6 +129,21 @@ public class ServicoApi {
             r.put("deputados", base.getDeputados().size());
             r.put("votacoes", base.getTotalVotacoes());
             r.put("posicoes", base.getPosicoes().size());
+            Map<Cargo, Integer> contagem = new java.util.TreeMap<>();
+            for (Candidato c : base.getCandidatos()) {
+                contagem.merge(c.getTipoCargo(), 1, Integer::sum);
+            }
+            List<Object> cargos = new ArrayList<>();
+            for (Map.Entry<Cargo, Integer> e : contagem.entrySet()) {
+                Map<String, Object> cm = new LinkedHashMap<>();
+                cm.put("codigo", e.getKey().name());
+                cm.put("rotulo", e.getKey().getRotulo());
+                cm.put("orgao", e.getKey().getOrgao());
+                cm.put("principal", e.getKey().isPrincipal());
+                cm.put("total", e.getValue());
+                cargos.add(cm);
+            }
+            r.put("cargos", cargos);
         }
         return r;
     }
@@ -150,6 +175,7 @@ public class ServicoApi {
         }
         config.setOcultarInaptos(!"1".equals(p.get("inaptos")));
         config.setCoberturaMinima(Math.max(1, inteiro(p.get("cobertura"), 1)));
+        config.setCargo(cargo(p.get("cargo")));
         MetodoRanking metodo = "topsis".equals(p.get("metodo")) ? new Topsis() : new SomaPonderada();
 
         List<Object> itens = new ArrayList<>();
@@ -201,6 +227,23 @@ public class ServicoApi {
         CandidaturaAnterior atual = c.getMandatoAtual(base.getMetadados().getAnoEleicao());
         m.put("mandatoAtual", atual == null ? null : cargoLegivel(atual));
         m.put("jaEleito", c.jaFoiEleito());
+        m.put("cargo", c.getTipoCargo().name());
+        m.put("cargoTexto", c.getTipoCargo().getRotulo());
+        m.put("cargoPrincipal", c.getTipoCargo().isPrincipal());
+        String[] exp = experiencia(c);
+        m.put("experiencia", exp[0]);
+        m.put("experienciaTexto", exp[1]);
+        m.put("contasIrregulares", c.getContasIrregulares().size());
+        List<Object> linha = new ArrayList<>();
+        for (CandidaturaAnterior t : c.getTrajetoria()) {
+            Map<String, Object> tm = new LinkedHashMap<>();
+            tm.put("ano", t.getAno());
+            tm.put("cargoTexto", t.getCargoLegivel());
+            tm.put("resultado", t.getResultado());
+            tm.put("eleito", t.isEleito());
+            linha.add(tm);
+        }
+        m.put("linhaDoTempo", linha);
         Elegibilidade e = c.getElegibilidade();
         m.put("elegibilidade", e.name());
         m.put("elegibilidadeTexto", e.getRotulo());
@@ -215,11 +258,14 @@ public class ServicoApi {
 
     // ------------------------------------------------------------------ candidatos
 
-    public synchronized List<Object> candidatos() throws DadosException {
+    public synchronized List<Object> candidatos(String cargo) throws DadosException {
         exigirBase();
+        Cargo cg = cargo(cargo);
         List<Object> lista = new ArrayList<>();
         for (Candidato c : base.getCandidatosOrdenadosPorNome()) {
-            lista.add(resumoCandidato(c));
+            if (cg == null || c.getTipoCargo() == cg) {
+                lista.add(resumoCandidato(c));
+            }
         }
         return lista;
     }
@@ -250,6 +296,7 @@ public class ServicoApi {
             tm.put("ano", t.getAno());
             tm.put("cargo", t.getCargo());
             tm.put("cargoTexto", t.getCargoLegivel());
+            tm.put("tipo", t.getTipoCargo().name());
             tm.put("local", t.getLocal());
             tm.put("partido", t.getPartido());
             tm.put("resultado", t.getResultado());
@@ -258,6 +305,27 @@ public class ServicoApi {
             trajetoria.add(tm);
         }
         m.put("trajetoria", trajetoria);
+        List<Object> atuacao = new ArrayList<>();
+        Deputado atualCamara = base.getDeputadoDe(c);
+        if (atualCamara != null) {
+            atuacao.add(resumoJson(MandatoAnteriorCamara.resumir(atualCamara, base,
+                    (meta.getAnoEleicao() - 3) + "–hoje")));
+        }
+        for (ResumoMandato r : c.getAtuacao()) {
+            atuacao.add(resumoJson(r));
+        }
+        m.put("atuacao", atuacao);
+        List<Object> contas = new ArrayList<>();
+        for (ContaIrregular ci : c.getContasIrregulares()) {
+            Map<String, Object> cm = new LinkedHashMap<>();
+            cm.put("processo", ci.getProcesso());
+            cm.put("deliberacao", ci.getDeliberacao());
+            cm.put("transito", ci.getDataTransito());
+            cm.put("local", ci.getLocal());
+            cm.put("criterio", ci.getCriterio());
+            contas.add(cm);
+        }
+        m.put("contas", contas);
         int[] anos = br.unit.eleicao.coleta.ProcessadorTrajetoria.anosAnteriores(meta.getAnoEleicao());
         m.put("trajetoriaDe", anos[0]);
         m.put("trajetoriaAte", anos[anos.length - 1]);
@@ -290,10 +358,27 @@ public class ServicoApi {
         return m;
     }
 
+    private static Map<String, Object> resumoJson(ResumoMandato r) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("casa", r.getCasa());
+        m.put("cargo", r.getCargo());
+        m.put("periodo", r.getPeriodo());
+        m.put("url", r.getUrl());
+        m.put("presenca", r.getPresenca());
+        m.put("detalhePresenca", r.getDetalhePresenca());
+        m.put("projetos", r.getProjetos());
+        m.put("aprovados", r.getAprovados());
+        m.put("observacaoProjetos", r.getObservacaoProjetos());
+        m.put("gastoMensal", r.getGastoMensal());
+        m.put("destaques", r.getDestaques());
+        return m;
+    }
+
     // ------------------------------------------------------------------ análise de perfil
 
-    public synchronized Map<String, Object> distribuicao(String tipo) throws DadosException {
+    public synchronized Map<String, Object> distribuicao(String tipo, String cargo) throws DadosException {
         exigirBase();
+        List<Candidato> grupo = candidatosDo(cargo);
         Map<String, Integer> contagem = new LinkedHashMap<>();
         Function<Candidato, String> classe;
         String titulo;
@@ -324,6 +409,10 @@ public class ServicoApi {
                 titulo = "Partido";
                 classe = Candidato::getPartido;
                 break;
+            case "cargo":
+                titulo = "Cargo disputado";
+                classe = c -> c.getTipoCargo().getRotulo();
+                break;
             case "mandato":
                 titulo = "Já é deputado(a) federal?";
                 classe = c -> c.temMandatoNaCamara() ? "Sim (tem dados da Câmara)" : "Não";
@@ -335,14 +424,16 @@ public class ServicoApi {
                     contagem.put(f, 0);
                 }
                 classe = c -> {
-                    if (c.temMandatoNaCamara() || c.getMandatoAtual(base.getMetadados().getAnoEleicao()) != null) {
-                        return "Tem mandato hoje";
+                    switch (experiencia(c)[0]) {
+                        case "MANDATO_ATUAL":
+                            return "Tem mandato hoje";
+                        case "JA_ELEITO":
+                            return "Já foi eleito(a) antes";
+                        case "JA_CONCORREU":
+                            return "Já concorreu, nunca eleito(a)";
+                        default:
+                            return "Primeira eleição (desde " + ProcessadorTrajetoriaAnos.inicio(base) + ")";
                     }
-                    if (c.jaFoiEleito()) {
-                        return "Já foi eleito(a) antes";
-                    }
-                    return c.getTrajetoria().isEmpty() ? "Primeira eleição (desde " + ProcessadorTrajetoriaAnos.inicio(base) + ")"
-                            : "Já concorreu, nunca eleito(a)";
                 };
                 break;
             case "elegibilidade":
@@ -358,7 +449,7 @@ public class ServicoApi {
                 }
                 classe = c -> c.getGrauInstrucao().getDescricao();
         }
-        for (Candidato c : base.getCandidatos()) {
+        for (Candidato c : grupo) {
             contagem.merge(classe.apply(c), 1, Integer::sum);
         }
         List<Object> barras = new ArrayList<>();
@@ -370,7 +461,7 @@ public class ServicoApi {
         }
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("titulo", titulo);
-        r.put("total", base.getCandidatos().size());
+        r.put("total", grupo.size());
         r.put("barras", barras);
         return r;
     }
@@ -439,7 +530,7 @@ public class ServicoApi {
         }
     }
 
-    public synchronized Map<String, Object> correlacao(String x, String y) throws DadosException {
+    public synchronized Map<String, Object> correlacao(String x, String y, String cargo) throws DadosException {
         exigirBase();
         Map<String, String> nomes = variaveis();
         if (!nomes.containsKey(x) || !nomes.containsKey(y)) {
@@ -448,7 +539,7 @@ public class ServicoApi {
         List<Object> pontos = new ArrayList<>();
         List<Double> xs = new ArrayList<>();
         List<Double> ys = new ArrayList<>();
-        for (Candidato c : base.getCandidatos()) {
+        for (Candidato c : candidatosDo(cargo)) {
             Double vx = valorVariavel(x, c);
             Double vy = valorVariavel(y, c);
             if (vx != null && vy != null) {
@@ -587,6 +678,56 @@ public class ServicoApi {
             r.put("log", new ArrayList<>(logColeta));
         }
         return r;
+    }
+
+    /** Converte o código do cargo vindo da tela (ex.: "GOVERNADOR"); null = todos. */
+    private static Cargo cargo(String codigo) throws DadosException {
+        if (Texto.vazio(codigo) || "TODOS".equalsIgnoreCase(codigo)) {
+            return null;
+        }
+        try {
+            return Cargo.valueOf(codigo.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new DadosException("Cargo desconhecido: " + codigo);
+        }
+    }
+
+    private List<Candidato> candidatosDo(String codigoCargo) throws DadosException {
+        Cargo cg = cargo(codigoCargo);
+        List<Candidato> lista = new ArrayList<>();
+        for (Candidato c : base.getCandidatos()) {
+            if (cg == null || c.getTipoCargo() == cg) {
+                lista.add(c);
+            }
+        }
+        return lista;
+    }
+
+    /** Experiência política em uma palavra-chave (para filtros) e em texto (para a tela). */
+    private String[] experiencia(Candidato c) {
+        int ano = base.getMetadados().getAnoEleicao();
+        if (c.temMandatoNaCamara()) {
+            return new String[]{"MANDATO_ATUAL", "Deputado(a) federal no mandato atual"};
+        }
+        CandidaturaAnterior atual = c.getMandatoAtual(ano);
+        if (atual != null) {
+            return new String[]{"MANDATO_ATUAL", atual.getCargoLegivel()
+                    + (atual.getLocal().isEmpty() ? "" : " em " + atual.getLocal()) + " desde " + (atual.getAno() + 1)};
+        }
+        if (c.jaFoiEleito() || !c.getAtuacao().isEmpty()) {
+            for (CandidaturaAnterior t : c.getTrajetoria()) {
+                if (t.isEleito()) {
+                    return new String[]{"JA_ELEITO", "Já foi " + t.getCargoLegivel().toLowerCase()
+                            + " (" + (t.getAno() + 1) + "–" + t.getFimMandato() + ")"};
+                }
+            }
+            return new String[]{"JA_ELEITO", "Já exerceu mandato"};
+        }
+        if (!c.getTrajetoria().isEmpty()) {
+            return new String[]{"JA_CONCORREU", "Já concorreu, sem ser eleito(a)"};
+        }
+        int[] anos = br.unit.eleicao.coleta.ProcessadorTrajetoria.anosAnteriores(ano);
+        return new String[]{"NOVO", "Primeira candidatura desde " + anos[0]};
     }
 
     private static int inteiro(String s, int padrao) {
