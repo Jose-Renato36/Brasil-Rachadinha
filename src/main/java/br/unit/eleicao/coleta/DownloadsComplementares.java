@@ -30,7 +30,7 @@ public class DownloadsComplementares {
         this.log = log;
     }
 
-    public void baixar(int anoEleicao, boolean empresas) {
+    public void baixar(String uf, int anoEleicao, boolean empresas) {
         log.accept("Baixando cadastros da CGU e do serviço público federal...");
         for (String cadastro : SancoesCgu.CADASTROS) {
             Path destino = SancoesCgu.arquivo(pasta, cadastro);
@@ -50,11 +50,38 @@ public class DownloadsComplementares {
                 }
             }
         }
+        Path pep = pasta.resolve(CargosPublicosPep.ARQUIVO);
+        if (!Files.exists(pep)) {
+            for (int m = 0; m < MESES_SIAPE; m++) {
+                if (tentar(FontesDados.pep(YearMonth.now().minusMonths(m)), pep)) {
+                    break;
+                }
+            }
+        }
+        log.accept("Baixando planos de governo registrados no TSE...");
+        for (String u : PlanosGoverno.ufs(uf)) {
+            String url = FontesDados.propostaGoverno(anoEleicao, u);
+            tentar(url, pasta.resolve(FontesDados.nomeLocal(url)));
+        }
         if (empresas) {
             baixarCnpj();
+            baixarContratos(anoEleicao);
         } else {
             log.accept("  (empresas) dados do CNPJ não baixados: use --empresas ou coloque Socios*.zip e Empresas*.zip "
                     + "em " + pasta.resolve(EmpresasReceita.PASTA).toAbsolutePath());
+        }
+    }
+
+    /** Contratos federais mensais desde o início do último mandato (ano da eleição anterior + 1). */
+    private void baixarContratos(int anoEleicao) {
+        log.accept("Baixando contratos do governo federal (arquivos mensais)...");
+        YearMonth mes = YearMonth.of(anoEleicao - 3, 1);
+        YearMonth fim = YearMonth.now().minusMonths(1);
+        Path destino = pasta.resolve(ContratosFederais.PASTA);
+        while (!mes.isAfter(fim)) {
+            String nome = mes.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMM")) + ".zip";
+            tentar(FontesDados.comprasFederais(mes), destino.resolve(nome));
+            mes = mes.plusMonths(1);
         }
     }
 

@@ -13,6 +13,12 @@ public class Metadados {
     public static final String FONTE_SANCOES = "sancoes";
     public static final String FONTE_SIAPE = "siape";
     public static final String FONTE_MANDATOS = "mandatos";
+    public static final String FONTE_EXPULSOES = "ceaf";
+    public static final String FONTE_CARGOS_PUBLICOS = "pep";
+    public static final String FONTE_CONTRATOS = "contratos";
+    public static final String FONTE_PLANOS = "planos";
+    public static final String FONTE_DESPESAS = "despesas";
+    public static final String FONTE_VOTOS = "votos";
 
     private String uf;
     private int anoEleicao;

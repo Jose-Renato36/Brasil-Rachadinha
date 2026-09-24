@@ -80,6 +80,26 @@ public class GeradorDadosDemo {
 
     public BaseDados gerarESalvar(Path destino) throws DadosException {
         BaseDados base = gerar();
+        // plano de governo fictício (PDF de uma página) para cada candidatura ao Executivo, exceto uma
+        int n = 0;
+        for (Candidato c : base.getCandidatos()) {
+            if (c.getTipoCargo().isExecutivo() && c.getTipoCargo().isPrincipal() && n++ % 4 != 3) {
+                String arquivo = c.getSq() + "_1.pdf";
+                try {
+                    java.nio.file.Files.createDirectories(destino.resolve(PlanosGoverno.PASTA));
+                    java.nio.file.Files.write(destino.resolve(PlanosGoverno.PASTA).resolve(arquivo),
+                            PdfSimples.pagina("Plano de governo FICTICIO - " + c.getNomeExibicao(),
+                                    "Documento de demonstracao: esta pessoa e estas propostas nao existem.",
+                                    "1. Saude: ampliar o atendimento nos postos (exemplo).",
+                                    "2. Educacao: escola em tempo integral (exemplo).",
+                                    "3. Seguranca: iluminacao publica e policiamento (exemplo)."));
+                    c.adicionarPlanoGoverno(arquivo);
+                } catch (java.io.IOException e) {
+                    throw new br.unit.eleicao.excecao.ArquivoInvalidoException("Erro gravando plano fictício: "
+                            + e.getMessage(), e);
+                }
+            }
+        }
         new RepositorioArquivos().salvar(base, destino);
         return base;
     }

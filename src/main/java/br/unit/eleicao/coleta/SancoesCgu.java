@@ -24,7 +24,7 @@ import java.util.function.Consumer;
  */
 public class SancoesCgu {
 
-    public static final String[] CADASTROS = {"CEIS", "CNEP"};
+    public static final String[] CADASTROS = {"CEIS", "CNEP", "CEAF"};
 
     private final Path pasta;
     private final Consumer<String> log;
@@ -38,7 +38,19 @@ public class SancoesCgu {
         return pasta.resolve(cadastro.toLowerCase() + ".zip");
     }
 
-    /** @return true se ao menos um dos cadastros foi lido */
+    private final java.util.Set<String> lidos = new java.util.TreeSet<>();
+
+    /** Cadastros efetivamente lidos (CEIS, CNEP, CEAF). */
+    public java.util.Set<String> getLidos() {
+        return lidos;
+    }
+
+    /**
+     * CEIS e CNEP: empresas e pessoas punidas. CEAF: servidores federais expulsos (demissão, destituição,
+     * cassação de aposentadoria), só pessoa física.
+     *
+     * @return true se ao menos um dos cadastros foi lido
+     */
     public boolean processar(List<Candidato> candidatos, Map<String, String> cpfPorSq) throws ArquivoInvalidoException {
         Map<String, List<Candidato>> porNome = new HashMap<>();
         Map<String, List<Candidato>> porEmpresa = new HashMap<>();
@@ -59,6 +71,7 @@ public class SancoesCgu {
                 continue;
             }
             algum = true;
+            lidos.add(cadastro);
             try (LeitorCsv csv = ArquivosBrutos.abrir(arquivo, EmendasParlamentares.WINDOWS_1252, "", ".csv", ';')) {
                 int iTipo = csv.indiceContendo("TIPO DE PESSOA");
                 int iDoc = csv.indice("CPF OU CNPJ DO SANCIONADO");
@@ -73,7 +86,7 @@ public class SancoesCgu {
                     String doc = Texto.somenteDigitos(LeitorCsv.campo(l, iDoc));
                     String tipo = Texto.normalizar(LeitorCsv.campo(l, iTipo));
                     String nome = LeitorCsv.campo(l, iNome);
-                    boolean empresa = tipo.startsWith("J") || doc.length() == 14;
+                    boolean empresa = !cadastro.equals("CEAF") && (tipo.startsWith("J") || doc.length() == 14);
                     List<Candidato> alvos = new ArrayList<>();
                     if (empresa && doc.length() >= 8) {
                         alvos.addAll(porEmpresa.getOrDefault(doc.substring(0, 8), List.of()));

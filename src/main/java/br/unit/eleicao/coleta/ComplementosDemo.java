@@ -5,6 +5,8 @@ import br.unit.eleicao.modelo.Candidato;
 import br.unit.eleicao.modelo.CandidaturaAnterior;
 import br.unit.eleicao.modelo.Cargo;
 import br.unit.eleicao.modelo.Financiamento;
+import br.unit.eleicao.modelo.CargoPublico;
+import br.unit.eleicao.modelo.ContratoPublico;
 import br.unit.eleicao.modelo.FormaResumo;
 import br.unit.eleicao.modelo.SerieMandato;
 import br.unit.eleicao.modelo.TemaMandato;
@@ -40,7 +42,8 @@ class ComplementosDemo {
         Metadados meta = base.getMetadados();
         for (String f : new String[]{Metadados.FONTE_CASSACAO, Metadados.FONTE_BENS_ANTERIORES, Metadados.FONTE_RECEITAS,
                 Metadados.FONTE_EMENDAS, Metadados.FONTE_EMPRESAS, Metadados.FONTE_SANCOES, Metadados.FONTE_SIAPE,
-                Metadados.FONTE_MANDATOS}) {
+                Metadados.FONTE_MANDATOS, Metadados.FONTE_EXPULSOES, Metadados.FONTE_CARGOS_PUBLICOS,
+                Metadados.FONTE_CONTRATOS, Metadados.FONTE_PLANOS, Metadados.FONTE_DESPESAS, Metadados.FONTE_VOTOS}) {
             meta.marcarVerificada(f);
         }
         List<Candidato> todos = new ArrayList<>(base.getCandidatos());
@@ -49,6 +52,17 @@ class ComplementosDemo {
         for (Candidato c : todos) {
             patrimonioAnterior(c);
             financiamento(c);
+            despesas(c);
+            for (CandidaturaAnterior t : c.getTrajetoria()) {
+                long votosBase = t.getTipoCargo() == Cargo.VEREADOR ? 2_000 : t.getTipoCargo().isMunicipal() ? 40_000
+                        : t.getTipoCargo() == Cargo.PRESIDENTE ? 30_000_000 : 150_000;
+                t.setVotos(Math.round(votosBase * (0.3 + 1.4 * rnd.nextDouble())));
+            }
+            if (n % 7 == 2) {
+                c.adicionarCargoPublico(new CargoPublico(n % 2 == 0 ? "SECRETÁRIO DE ESTADO DE EDUCAÇÃO (FICTÍCIO)"
+                        : "DIRETOR-PRESIDENTE DE EMPRESA ESTATAL (FICTÍCIO)", "GOVERNO DO ESTADO FICTÍCIO",
+                        "01/02/" + (2019 + n % 3), n % 3 == 0 ? "" : "31/03/2022"));
+            }
             if (EmendasParlamentares.foiParlamentarFederal(c)) {
                 emendas(c);
             }
@@ -62,6 +76,22 @@ class ComplementosDemo {
             }
             mandatosExecutivo(c, meta.getAnoEleicao());
             n++;
+        }
+        // um contrato federal de empresa de candidato e uma expulsão, para mostrar os alertas
+        for (Candidato c : todos) {
+            if (c.getEmpresas().size() > 1) {
+                VinculoEmpresa e = c.getEmpresas().get(0);
+                c.adicionarContrato(new ContratoPublico(e.getCnpj() + "000199", e.getRazaoSocial(), "MINISTÉRIO FICTÍCIO",
+                        "Prestação de serviços de manutenção predial (FICTÍCIO)", 1_250_000, "14/06/2024"));
+                break;
+            }
+        }
+        for (Candidato c : todos) {
+            if (!c.getVinculosServidor().isEmpty()) {
+                c.adicionarSancao(new Sancao("CEAF", c.getNome(), "Demissão (FICTÍCIO)", "INSTITUTO FICTÍCIO",
+                        "03/05/2021", "", false));
+                break;
+            }
         }
         // um caso de sanção em empresa e um de cassação, para mostrar os alertas
         for (Candidato c : todos) {
@@ -84,6 +114,9 @@ class ComplementosDemo {
 
     private void patrimonioAnterior(Candidato c) {
         double atual = c.getPatrimonio() == null ? 0 : c.getPatrimonio();
+        if (c.getTrajetoria().stream().noneMatch(t -> t.getAno() == 2022)) {
+            c.setPatrimonioAnterior(null); // como na coleta real: só há "antes" para quem concorreu em 2022
+        }
         for (CandidaturaAnterior t : c.getTrajetoria()) {
             if (t.getAno() == 2022 && c.getPatrimonioAnterior() != null) {
                 t.setPatrimonio(c.getPatrimonioAnterior()); // mesma declaração usada no indicador
@@ -120,6 +153,27 @@ class ComplementosDemo {
             f.somar("Vaquinha on-line", Math.round(total * 0.03));
         }
         c.setFinanciamento(f);
+    }
+
+    private void despesas(Candidato c) {
+        if (c.getFinanciamento() == null) {
+            return;
+        }
+        double total = c.getFinanciamento().getTotal() * (0.6 + 0.35 * rnd.nextDouble());
+        String[] tipos = {"Anúncios na internet", "Propaganda (impressos, adesivos, carro de som)",
+            "Produção de vídeo, rádio e TV", "Pessoal e cabos eleitorais", "Viagens, transporte e alimentação",
+            "Serviços (advogados, contadores, pesquisas)"};
+        double[] pesos = new double[tipos.length];
+        double soma = 0;
+        for (int i = 0; i < tipos.length; i++) {
+            pesos[i] = 0.2 + rnd.nextDouble();
+            soma += pesos[i];
+        }
+        Financiamento f = new Financiamento();
+        for (int i = 0; i < tipos.length; i++) {
+            f.somar(tipos[i], Math.round(total * pesos[i] / soma));
+        }
+        c.setDespesasCampanha(f);
     }
 
     private void emendas(Candidato c) {

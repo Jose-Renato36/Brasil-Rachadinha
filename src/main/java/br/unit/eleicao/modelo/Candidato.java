@@ -29,6 +29,10 @@ public class Candidato extends Pessoa {
     private final List<ResumoMandato> atuacao = new ArrayList<>();
     private final List<ContaIrregular> contasIrregulares = new ArrayList<>();
     private Financiamento financiamento;
+    private Financiamento despesasCampanha;
+    private final List<CargoPublico> cargosPublicos = new ArrayList<>();
+    private final List<ContratoPublico> contratos = new ArrayList<>();
+    private final List<String> planosGoverno = new ArrayList<>();
     private ResumoEmendas emendas;
     private final List<VinculoEmpresa> empresas = new ArrayList<>();
     private final List<Sancao> sancoes = new ArrayList<>();
@@ -254,6 +258,42 @@ public class Candidato extends Pessoa {
 
     public void setFinanciamento(Financiamento financiamento) {
         this.financiamento = financiamento;
+    }
+
+    /** Em que a campanha atual gastou, por tipo de despesa (contratada), ou null. */
+    public Financiamento getDespesasCampanha() {
+        return despesasCampanha;
+    }
+
+    public void setDespesasCampanha(Financiamento despesasCampanha) {
+        this.despesasCampanha = despesasCampanha;
+    }
+
+    public void adicionarCargoPublico(CargoPublico c) {
+        cargosPublicos.add(c);
+    }
+
+    /** Funções públicas de destaque (lista de Pessoas Expostas Politicamente, CGU). */
+    public List<CargoPublico> getCargosPublicos() {
+        return Collections.unmodifiableList(cargosPublicos);
+    }
+
+    public void adicionarContrato(ContratoPublico c) {
+        contratos.add(c);
+    }
+
+    /** Contratos federais de empresas de que a pessoa é sócia. */
+    public List<ContratoPublico> getContratos() {
+        return Collections.unmodifiableList(contratos);
+    }
+
+    public void adicionarPlanoGoverno(String arquivo) {
+        planosGoverno.add(arquivo);
+    }
+
+    /** Arquivos PDF do plano de governo registrado no TSE (nomes dentro da pasta "planos" da base). */
+    public List<String> getPlanosGoverno() {
+        return Collections.unmodifiableList(planosGoverno);
     }
 
     /** Emendas parlamentares indicadas (só para quem foi deputado federal ou senador), ou null. */

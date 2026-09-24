@@ -17,6 +17,7 @@ public class CandidaturaAnterior implements Comparable<CandidaturaAnterior> {
     private String codigoUe = "";
     private Double patrimonio;
     private String motivoCassacao = "";
+    private Long votos;
 
     public CandidaturaAnterior(int ano, String cargo, String local, String partido, String resultado) {
         this.ano = ano;
@@ -109,6 +110,15 @@ public class CandidaturaAnterior implements Comparable<CandidaturaAnterior> {
 
     public void setMotivoCassacao(String motivoCassacao) {
         this.motivoCassacao = motivoCassacao == null ? "" : motivoCassacao;
+    }
+
+    /** Votos nominais recebidos no 1º turno (null = arquivo de votação não consultado). */
+    public Long getVotos() {
+        return votos;
+    }
+
+    public void setVotos(Long votos) {
+        this.votos = votos;
     }
 
     /** Anos em que exerceu o mandato até o ano de referência (0 se não foi eleito). */

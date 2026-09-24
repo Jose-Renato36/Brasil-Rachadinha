@@ -12,6 +12,9 @@ import br.unit.eleicao.modelo.VinculoEmpresa;
 import br.unit.eleicao.modelo.VinculoServidor;
 import br.unit.eleicao.preparo.ItemPreparo;
 import br.unit.eleicao.preparo.QuadroPreparo;
+import br.unit.eleicao.preparo.ResumoCidadao;
+import br.unit.eleicao.modelo.CargoPublico;
+import br.unit.eleicao.modelo.ContratoPublico;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -27,10 +30,47 @@ public class FichaComplementar {
 
     private static final int MAIORES = 5;
     private final QuadroPreparo quadro = new QuadroPreparo();
+    private final ResumoCidadao resumo = new ResumoCidadao();
 
     public Map<String, Object> montar(Candidato c, Metadados meta) {
         Map<String, Object> m = new LinkedHashMap<>();
+        List<Object> frases = new ArrayList<>();
+        for (ResumoCidadao.Frase fr : resumo.montar(c, meta)) {
+            Map<String, Object> fm = new LinkedHashMap<>();
+            fm.put("avaliacao", fr.getAvaliacao().getClasse());
+            fm.put("texto", fr.getTexto());
+            frases.add(fm);
+        }
+        m.put("resumo", frases);
         m.put("preparo", preparo(c, meta));
+        m.put("despesasCampanha", financiamento(c.getDespesasCampanha()));
+        List<Object> cargos = new ArrayList<>();
+        for (CargoPublico p : c.getCargosPublicos()) {
+            Map<String, Object> pm = new LinkedHashMap<>();
+            pm.put("funcao", p.getFuncao());
+            pm.put("orgao", p.getOrgao());
+            pm.put("inicio", p.getInicio());
+            pm.put("fim", p.getFim());
+            cargos.add(pm);
+        }
+        m.put("cargosPublicos", cargos);
+        List<Object> contratos = new ArrayList<>();
+        for (ContratoPublico k : c.getContratos()) {
+            Map<String, Object> km = new LinkedHashMap<>();
+            km.put("empresa", k.getEmpresa());
+            km.put("cnpj", k.getCnpj());
+            km.put("orgao", k.getOrgao());
+            km.put("objeto", k.getObjeto());
+            km.put("valor", k.getValor());
+            km.put("data", k.getData());
+            contratos.add(km);
+        }
+        m.put("contratos", contratos);
+        List<Object> planos = new ArrayList<>();
+        for (String a : c.getPlanosGoverno()) {
+            planos.add("planos/" + a);
+        }
+        m.put("planosGoverno", planos);
         m.put("patrimonioSerie", seriePatrimonio(c, meta));
         m.put("financiamento", financiamento(c.getFinanciamento()));
         m.put("emendas", emendas(c.getEmendas()));
@@ -41,7 +81,9 @@ public class FichaComplementar {
         Map<String, Object> fontes = new LinkedHashMap<>();
         for (String f : new String[]{"tcu", Metadados.FONTE_CASSACAO, Metadados.FONTE_BENS_ANTERIORES,
                 Metadados.FONTE_RECEITAS, Metadados.FONTE_EMENDAS, Metadados.FONTE_EMPRESAS, Metadados.FONTE_SANCOES,
-                Metadados.FONTE_SIAPE, Metadados.FONTE_MANDATOS}) {
+                Metadados.FONTE_SIAPE, Metadados.FONTE_MANDATOS, Metadados.FONTE_EXPULSOES,
+                Metadados.FONTE_CARGOS_PUBLICOS, Metadados.FONTE_CONTRATOS, Metadados.FONTE_PLANOS,
+                Metadados.FONTE_DESPESAS, Metadados.FONTE_VOTOS}) {
             fontes.put(f, meta.isVerificada(f));
         }
         m.put("fontes", fontes);

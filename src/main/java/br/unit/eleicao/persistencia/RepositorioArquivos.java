@@ -8,6 +8,8 @@ import br.unit.eleicao.modelo.CandidaturaAnterior;
 import br.unit.eleicao.modelo.ContaIrregular;
 import br.unit.eleicao.modelo.Financiamento;
 import br.unit.eleicao.modelo.Cargo;
+import br.unit.eleicao.modelo.CargoPublico;
+import br.unit.eleicao.modelo.ContratoPublico;
 import br.unit.eleicao.modelo.FormaResumo;
 import br.unit.eleicao.modelo.PontoSerie;
 import br.unit.eleicao.modelo.SerieMandato;
@@ -64,6 +66,10 @@ public class RepositorioArquivos {
     public static final String SANCOES = "sancoes.csv";
     public static final String SERVIDOR = "servidor_federal.csv";
     public static final String SERIES_MANDATO = "mandatos_executivo.csv";
+    public static final String CARGOS_PUBLICOS = "cargos_publicos.csv";
+    public static final String CONTRATOS = "contratos_federais.csv";
+    public static final String DESPESAS_CAMPANHA = "despesas_campanha.csv";
+    public static final String PLANOS = "planos_governo.csv";
     private static final String SEPARADOR_DESTAQUES = " || ";
     /** Quantos locais/áreas das emendas são guardados por parlamentar (os de maior valor pago). */
     private static final int MAIORES_EMENDAS = 8;
@@ -88,6 +94,10 @@ public class RepositorioArquivos {
         lerSancoes(base, dir.resolve(SANCOES));
         lerServidor(base, dir.resolve(SERVIDOR));
         lerSeriesMandato(base, dir.resolve(SERIES_MANDATO));
+        lerCargosPublicos(base, dir.resolve(CARGOS_PUBLICOS));
+        lerContratos(base, dir.resolve(CONTRATOS));
+        lerDespesasCampanha(base, dir.resolve(DESPESAS_CAMPANHA));
+        lerPlanos(base, dir.resolve(PLANOS));
         lerVotacoes(base, dir.resolve(VOTACOES));
         lerVotos(base, dir.resolve(VOTOS));
         lerDespesas(base, dir.resolve(DESPESAS));
@@ -215,6 +225,7 @@ public class RepositorioArquivos {
             int iUe = csv.indiceOpcional("codigoUe");
             int iPat = csv.indiceOpcional("patrimonio");
             int iCass = csv.indiceOpcional("motivoCassacao");
+            int iVotos = csv.indiceOpcional("votos");
             String[] l;
             while ((l = csv.proximaLinha()) != null) {
                 Candidato c = base.buscarCandidato(LeitorCsv.campo(l, iSq));
@@ -226,6 +237,8 @@ public class RepositorioArquivos {
                     t.setCodigoUe(LeitorCsv.campo(l, iUe));
                     t.setPatrimonio(Texto.parseDecimal(LeitorCsv.campo(l, iPat)));
                     t.setMotivoCassacao(LeitorCsv.campo(l, iCass));
+                    String votos = LeitorCsv.campo(l, iVotos);
+                    t.setVotos(votos.isEmpty() ? null : Long.valueOf(votos));
                     c.adicionarCandidaturaAnterior(t);
                 }
             }
@@ -627,6 +640,68 @@ public class RepositorioArquivos {
         }
     }
 
+    private void lerCargosPublicos(BaseDados base, Path arquivo) throws ArquivoInvalidoException {
+        for (String[] l : linhas(arquivo, "sq", "funcao", "orgao", "inicio", "fim")) {
+            Candidato c = base.buscarCandidato(l[0]);
+            if (c != null) {
+                c.adicionarCargoPublico(new CargoPublico(l[1], l[2], l[3], l[4]));
+            }
+        }
+    }
+
+    private void lerContratos(BaseDados base, Path arquivo) throws ArquivoInvalidoException {
+        for (String[] l : linhas(arquivo, "sq", "cnpj", "empresa", "orgao", "objeto", "valor", "data")) {
+            Candidato c = base.buscarCandidato(l[0]);
+            if (c != null) {
+                c.adicionarContrato(new ContratoPublico(l[1], l[2], l[3], l[4], valor(l[5]), l[6]));
+            }
+        }
+    }
+
+    private void lerDespesasCampanha(BaseDados base, Path arquivo) throws ArquivoInvalidoException {
+        for (String[] l : linhas(arquivo, "sq", "tipo", "valor")) {
+            Candidato c = base.buscarCandidato(l[0]);
+            if (c != null) {
+                if (c.getDespesasCampanha() == null) {
+                    c.setDespesasCampanha(new Financiamento());
+                }
+                c.getDespesasCampanha().somar(l[1], valor(l[2]));
+            }
+        }
+    }
+
+    private void lerPlanos(BaseDados base, Path arquivo) throws ArquivoInvalidoException {
+        for (String[] l : linhas(arquivo, "sq", "arquivo")) {
+            Candidato c = base.buscarCandidato(l[0]);
+            if (c != null && Files.exists(arquivo.resolveSibling("planos").resolve(l[1]))) {
+                c.adicionarPlanoGoverno(l[1]);
+            }
+        }
+    }
+
+    /** Lê as colunas pedidas, na ordem pedida; arquivo ausente = lista vazia. */
+    private static List<String[]> linhas(Path arquivo, String... colunas) throws ArquivoInvalidoException {
+        List<String[]> lista = new ArrayList<>();
+        if (!Files.exists(arquivo)) {
+            return lista;
+        }
+        try (LeitorCsv csv = new LeitorCsv(arquivo, StandardCharsets.UTF_8)) {
+            int[] idx = new int[colunas.length];
+            for (int i = 0; i < colunas.length; i++) {
+                idx[i] = csv.indice(colunas[i]);
+            }
+            String[] l;
+            while ((l = csv.proximaLinha()) != null) {
+                String[] v = new String[colunas.length];
+                for (int i = 0; i < colunas.length; i++) {
+                    v[i] = LeitorCsv.campo(l, idx[i]);
+                }
+                lista.add(v);
+            }
+        }
+        return lista;
+    }
+
     private void salvarComplementos(BaseDados base, Path dir) throws DadosException {
         try (EscritorCsv csv = new EscritorCsv(dir.resolve(FINANCIAMENTO), "sq", "origem", "valor")) {
             for (Candidato c : base.getCandidatos()) {
@@ -678,6 +753,38 @@ public class RepositorioArquivos {
             for (Candidato c : base.getCandidatos()) {
                 for (VinculoServidor v : c.getVinculosServidor()) {
                     csv.escrever(c.getSq(), v.getCargo(), v.getOrgao(), v.getSituacao(), v.getIngresso());
+                }
+            }
+        }
+        try (EscritorCsv csv = new EscritorCsv(dir.resolve(CARGOS_PUBLICOS), "sq", "funcao", "orgao", "inicio", "fim")) {
+            for (Candidato c : base.getCandidatos()) {
+                for (CargoPublico p : c.getCargosPublicos()) {
+                    csv.escrever(c.getSq(), p.getFuncao(), p.getOrgao(), p.getInicio(), p.getFim());
+                }
+            }
+        }
+        try (EscritorCsv csv = new EscritorCsv(dir.resolve(CONTRATOS), "sq", "cnpj", "empresa", "orgao", "objeto", "valor",
+                "data")) {
+            for (Candidato c : base.getCandidatos()) {
+                for (ContratoPublico k : c.getContratos()) {
+                    csv.escrever(c.getSq(), k.getCnpj(), k.getEmpresa(), k.getOrgao(), k.getObjeto(), dinheiro(k.getValor()),
+                            k.getData());
+                }
+            }
+        }
+        try (EscritorCsv csv = new EscritorCsv(dir.resolve(DESPESAS_CAMPANHA), "sq", "tipo", "valor")) {
+            for (Candidato c : base.getCandidatos()) {
+                if (c.getDespesasCampanha() != null) {
+                    for (Map.Entry<String, Double> e : c.getDespesasCampanha().getPorOrigem().entrySet()) {
+                        csv.escrever(c.getSq(), e.getKey(), dinheiro(e.getValue()));
+                    }
+                }
+            }
+        }
+        try (EscritorCsv csv = new EscritorCsv(dir.resolve(PLANOS), "sq", "arquivo")) {
+            for (Candidato c : base.getCandidatos()) {
+                for (String a : c.getPlanosGoverno()) {
+                    csv.escrever(c.getSq(), a);
                 }
             }
         }
@@ -733,11 +840,11 @@ public class RepositorioArquivos {
             }
         }
         try (EscritorCsv csv = new EscritorCsv(dir.resolve(TRAJETORIA), "sq", "ano", "cargo", "local", "partido",
-                "resultado", "sqOrigem", "codigoUe", "patrimonio", "motivoCassacao")) {
+                "resultado", "sqOrigem", "codigoUe", "patrimonio", "motivoCassacao", "votos")) {
             for (Candidato c : base.getCandidatos()) {
                 for (CandidaturaAnterior t : c.getTrajetoria()) {
                     csv.escrever(c.getSq(), t.getAno(), t.getCargo(), t.getLocal(), t.getPartido(), t.getResultado(),
-                            t.getSqOrigem(), t.getCodigoUe(), t.getPatrimonio(), t.getMotivoCassacao());
+                            t.getSqOrigem(), t.getCodigoUe(), t.getPatrimonio(), t.getMotivoCassacao(), t.getVotos());
                 }
             }
         }

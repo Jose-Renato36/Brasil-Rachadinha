@@ -24,6 +24,9 @@ public class AlertaSancoes extends CriterioPreparo {
         int pessoa = 0;
         int empresa = 0;
         for (Sancao s : c.getSancoes()) {
+            if ("CEAF".equals(s.getCadastro())) {
+                continue; // expulsões têm item próprio
+            }
             if (s.isSobreEmpresa()) {
                 empresa++;
             } else {

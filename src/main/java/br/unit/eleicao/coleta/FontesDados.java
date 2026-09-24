@@ -113,6 +113,33 @@ public final class FontesDados {
         return "https://raw.githubusercontent.com/betafcc/Municipios-Brasileiros-TSE/master/municipios_brasileiros_tse.csv";
     }
 
+    /** Pessoas Expostas Politicamente de um mês (zip com AAAAMM_PEP.csv), Portal da Transparência. */
+    public static String pep(java.time.YearMonth mes) {
+        return "https://portaldatransparencia.gov.br/download-de-dados/pep/"
+                + mes.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMM"));
+    }
+
+    /** Contratos do governo federal de um mês (zip com AAAAMM_Compras.csv), Portal da Transparência. */
+    public static String comprasFederais(java.time.YearMonth mes) {
+        return "https://portaldatransparencia.gov.br/download-de-dados/compras/"
+                + mes.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMM"));
+    }
+
+    /** Planos de governo registrados no TSE (PDFs), um zip por UF; "BR" = Presidência. */
+    public static String propostaGoverno(int ano, String uf) {
+        return TSE + "proposta_governo/proposta_governo_" + ano + "_" + uf.toUpperCase() + ".zip";
+    }
+
+    /** Votos por candidato, município e zona (um CSV por UF dentro do zip). */
+    public static String votacao(int ano) {
+        return TSE + "votacao_candidato_munzona/votacao_candidato_munzona_" + ano + ".zip";
+    }
+
+    /** Verba de gabinete dos senadores (CEAPS) de um ano; a 1ª linha do CSV é a data de atualização. */
+    public static String cotaSenado(int ano) {
+        return "https://www.senado.leg.br/transparencia/LAI/verba/despesa_ceaps_" + ano + ".csv";
+    }
+
     /** Nome do arquivo local = último trecho da URL. */
     public static String nomeLocal(String url) {
         return url.substring(url.lastIndexOf('/') + 1);

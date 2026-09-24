@@ -436,3 +436,19 @@ details summary { cursor: pointer; font-weight: 600; color: var(--primaria); }
 .cartao-serie details summary { font-size: .85rem; cursor: pointer; color: var(--primaria); }
 .cartao-serie details p { font-size: .85rem; margin: 6px 0 0; }
 .legenda-linha .cor:first-child { margin-left: 0; }
+
+/* ---------- em resumo ---------- */
+.resumo-cidadao { background: var(--primaria-clara); border-radius: var(--raio); padding: 16px 18px; margin-bottom: 18px; }
+.resumo-cidadao h3 { margin: 0 0 8px; }
+.resumo-cidadao ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.resumo-cidadao li { display: flex; gap: 10px; align-items: flex-start; font-size: 1.02rem; line-height: 1.45; }
+.resumo-cidadao .aval { margin-top: 1px; }
+.resumo-cidadao .pequeno { font-size: .82rem; margin: 10px 0 0; }
+.acoes-plano { margin: 12px 0 0; }
+.botao.plano { display: inline-block; }
+.subtitulo { margin: 16px 0 6px; font-size: .9rem; }
+.numero-medio { font-size: 1.15rem; font-weight: 700; margin: 0 0 6px; }
+.numero-medio small { font-size: .82rem; font-weight: 400; color: var(--texto-2); }
+.glossario dt { font-weight: 700; margin-top: 10px; }
+.glossario dd { margin: 2px 0 0; color: var(--texto-2); }
+.resumo-cidadao .aval-info { background: var(--superficie); }

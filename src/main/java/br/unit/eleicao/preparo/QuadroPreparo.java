@@ -21,9 +21,11 @@ public class QuadroPreparo {
         criterios.add(new Formacao());
         criterios.add(new ExperienciaEletiva());
         criterios.add(new ExperienciaMesmaFuncao());
+        criterios.add(new ExperienciaGestao());
         criterios.add(new AlertaContasTcu());
         criterios.add(new AlertaCassacao());
         criterios.add(new AlertaSancoes());
+        criterios.add(new AlertaExpulsao());
     }
 
     public List<CriterioPreparo> getCriterios() {

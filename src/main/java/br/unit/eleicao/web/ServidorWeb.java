@@ -37,6 +37,7 @@ public class ServidorWeb {
             try {
                 servidor = HttpServer.create(new InetSocketAddress("127.0.0.1", porta), 0);
                 servidor.createContext("/api/", this::atenderApi);
+                servidor.createContext("/planos/", this::atenderPlano);
                 servidor.createContext("/", this::atenderArquivo);
                 servidor.setExecutor(Executors.newFixedThreadPool(4));
                 servidor.start();
@@ -177,6 +178,22 @@ public class ServidorWeb {
             }
             enviar(troca, 200, tipo(caminho), in.readAllBytes());
         }
+    }
+
+    /** PDF do plano de governo copiado para a pasta "planos" da base carregada. */
+    private void atenderPlano(HttpExchange troca) throws IOException {
+        String nome = troca.getRequestURI().getPath().substring("/planos/".length());
+        java.nio.file.Path pasta = api.pastaPlanos();
+        if (!nome.matches("[A-Za-z0-9_]+\\.pdf") || pasta == null) {
+            responder(troca, 404, "text/plain; charset=utf-8", "Plano não encontrado");
+            return;
+        }
+        java.nio.file.Path arquivo = pasta.resolve(nome);
+        if (!java.nio.file.Files.isRegularFile(arquivo)) {
+            responder(troca, 404, "text/plain; charset=utf-8", "Plano não encontrado");
+            return;
+        }
+        enviar(troca, 200, "application/pdf", java.nio.file.Files.readAllBytes(arquivo));
     }
 
     private static String tipo(String caminho) {

@@ -245,7 +245,7 @@ async function telaInicio() {
       <p class="sobretitulo">Eleições ${e.anoEleicao}${uf ? ' · ' + esc(nomeUf(uf)) : ''}</p>
       <h1>Conheça quem pede o seu voto antes de decidir.</h1>
       <p>Se tem preparo para o cargo, quem já foi político, o que fez, quando e onde, e quem está estreando.
-        Tudo com dados públicos oficiais (TSE, Câmara, Senado, TCU, CGU, Receita e Tesouro) e a fonte de cada número. <strong>Você decide o que é importante.</strong></p>
+        Tudo com dados públicos oficiais (TSE, Câmara, Senado, TCU, CGU, IBGE, INEP, Tesouro e Banco Central) e a fonte de cada número. <strong>Você decide o que é importante.</strong></p>
       <div class="busca">
         <input type="search" id="busca-inicio" placeholder="Procure pelo nome ou pelo número na urna" aria-label="Procurar candidato" autocomplete="off">
         <div class="sugestoes" id="sugestoes" hidden></div>
@@ -258,7 +258,7 @@ async function telaInicio() {
     <h2 class="titulo-secao">Como usar</h2>
     <div class="grade grade-3">
       <a class="cartao passo" href="#/candidatos"><span class="numero">1</span><h3>Veja quem são</h3>
-        <p class="fraco">Cartões com a trajetória de cada pessoa: estreante, já eleita, com mandato hoje. Clique para ver o que fez.</p></a>
+        <p class="fraco">Clique no cartão de cada pessoa: o <strong>“Em resumo”</strong> mostra em poucas frases a experiência, os alertas, o dinheiro da campanha e o plano de governo.</p></a>
       <a class="cartao passo" href="#/opinioes"><span class="numero">2</span><h3>Diga como votaria</h3>
         <p class="fraco">Responda sobre projetos que já foram votados e descubra quem votou como você.</p></a>
       <a class="cartao passo" href="#/ranking"><span class="numero">3</span><h3>Monte sua lista</h3>
@@ -436,6 +436,32 @@ function blocoAtuacao(a) {
 const ICONES_AVAL = { ok: '✓', info: 'i', atencao: '!', negativo: '✕', 'sem-dados': '?' };
 const CORES_ORIGEM = ['var(--serie-1)', 'var(--serie-2)', 'var(--serie-3)', '#8e6fd8', '#c9a227', '#7a8591'];
 
+function botoesPlano(c) {
+  return (c.planosGoverno || []).map((url, i) => `<a class="botao plano" href="${esc(url)}" target="_blank" rel="noopener">📄 Ler o plano de governo${c.planosGoverno.length > 1 ? ' (parte ' + (i + 1) + ')' : ''}</a>`).join(' ');
+}
+
+function blocoResumo(c) {
+  const frases = c.resumo || [];
+  if (!frases.length) return '';
+  return `<section class="resumo-cidadao" aria-label="Em resumo">
+    <h3>Em resumo</h3>
+    <ul>${frases.map(f => `<li><span class="aval aval-${esc(f.avaliacao)}" aria-hidden="true">${ICONES_AVAL[f.avaliacao] || ''}</span><span>${esc(f.texto)}</span></li>`).join('')}</ul>
+    ${botoesPlano(c) ? `<p class="acoes-plano">${botoesPlano(c)}</p>` : ''}
+    <p class="fraco pequeno">Tudo vem de dados públicos oficiais. Nada aqui é nota ou indicação de voto: role a página para ver os detalhes e as fontes.</p>
+  </section>`;
+}
+
+function blocoDespesas(c) {
+  const d = c.despesasCampanha;
+  if (!d) return c.fontes && c.fontes.despesas ? '<p class="fraco">Nenhum gasto declarado ao TSE até a data da coleta.</p>' : '';
+  const faixa = d.partes.map((p, i) => `<span style="width:${100 * p.parte}%;background:${CORES_ORIGEM[i % CORES_ORIGEM.length]}" title="${esc(p.origem)}: ${pct(100 * p.parte)}"></span>`).join('');
+  return `<h4 class="subtitulo">Em que a campanha gasta</h4>
+    <p class="numero-medio">${moeda(d.total)} <small>em gastos contratados</small></p>
+    <div class="barra-empilhada" role="img" aria-label="Divisão dos gastos por tipo">${faixa}</div>
+    <ul class="legenda">${d.partes.map((p, i) => `<li><span class="cor" style="background:${CORES_ORIGEM[i % CORES_ORIGEM.length]}"></span>
+      ${esc(p.origem)} <strong>${moeda(p.valor)}</strong> <small>(${pct(100 * p.parte)})</small></li>`).join('')}</ul>`;
+}
+
 function blocoPreparo(c) {
   if (!c.preparo || !c.preparo.length) return '';
   const grupos = [];
@@ -528,7 +554,7 @@ function resultadoSerie(s, v) {
   const sinal = v > 0 ? '+' : '';
   switch (s.forma) {
     case 'VARIACAO_PERCENTUAL': return sinal + numeroBr(v) + '%';
-    case 'VARIACAO_PONTOS': return sinal + numeroBr(v) + (s.unidade === '%' ? ' p.p.' : '');
+    case 'VARIACAO_PONTOS': return sinal + numeroBr(v) + (s.unidade === '%' ? (Math.abs(v) === 1 ? ' ponto' : ' pontos') : '');
     case 'SOMA': return numeroBr(v, 0);
     default: return numeroBr(v) + (s.unidade === '%' ? '%' : '');
   }
@@ -614,6 +640,12 @@ function blocoMandatosExecutivo(c) {
 function blocoVinculos(c) {
   const f = c.fontes || {};
   const partes = [];
+  if (c.cargosPublicos && c.cargosPublicos.length) {
+    partes.push(`<h4>Cargos públicos de gestão</h4><ul class="lista-simples">${c.cargosPublicos.map(p => `<li><strong>${esc(p.funcao)}</strong>${p.orgao ? ' · ' + esc(p.orgao) : ''}<br><small>${p.inicio ? 'desde ' + esc(p.inicio) : ''}${p.fim ? ' até ' + esc(p.fim) : p.inicio ? ' (atual)' : ''}</small></li>`).join('')}</ul>
+      <small class="fraco">Lista de Pessoas Expostas Politicamente (CGU): funções exercidas agora ou nos últimos 5 anos.</small>`);
+  } else if (f.pep) {
+    partes.push('<p class="fraco">Não ocupou cargo público de destaque (ministro, secretário de estado, dirigente de estatal) nos últimos 5 anos.</p>');
+  }
   if (c.servidor && c.servidor.length) {
     partes.push(`<h4>Serviço público federal</h4><ul class="lista-simples">${c.servidor.map(s => `<li><strong>${esc(s.cargo)}</strong> · ${esc(s.orgao)}<br><small>${esc(s.situacao)}${s.ingresso ? ' · desde ' + esc(s.ingresso) : ''}</small></li>`).join('')}</ul>`);
   } else if (f.siape) {
@@ -625,6 +657,12 @@ function blocoVinculos(c) {
   } else if (f.empresas) {
     partes.push('<p class="fraco">Não aparece no quadro de sócios de empresas (Receita Federal).</p>');
   }
+  if (c.contratos && c.contratos.length) {
+    const total = c.contratos.reduce((a, k) => a + k.valor, 0);
+    partes.push(`<div class="caixa-alerta"><strong>Empresas desta pessoa têm contratos com o governo federal</strong> (${moeda(total)} no total)
+      <ul>${c.contratos.slice(0, 5).map(k => `<li>${esc(k.empresa)} · ${esc(k.orgao)} · ${moeda(k.valor)}${k.data ? ' · ' + esc(k.data) : ''}<br><small>${esc(k.objeto)}</small></li>`).join('')}</ul>
+      <small>Vender para o governo não é ilegal. O dado ajuda a ver possíveis conflitos de interesse. Fonte: Portal da Transparência.</small></div>`);
+  }
   return partes.join('');
 }
 
@@ -635,9 +673,16 @@ function blocoAlertas(c) {
       <ul>${c.contas.map(x => `<li>Processo ${esc(x.processo)} · ${esc(x.deliberacao)} · ${esc(x.local)}${x.transito ? ' · trânsito em julgado ' + esc(x.transito) : ''} <small>(ligado por ${esc(x.criterio)})</small></li>`).join('')}</ul>
       <small>Estar na lista não torna a candidatura automaticamente inelegível: quem decide é a Justiça Eleitoral.</small></div>`);
   }
-  if (c.sancoes && c.sancoes.length) {
+  const expulsoes = (c.sancoes || []).filter(s => s.cadastro === 'CEAF');
+  if (expulsoes.length) {
+    partes.push(`<div class="caixa-alerta"><strong>Expulsão do serviço público federal</strong>
+      <ul>${expulsoes.map(s => `<li>${esc(s.categoria)} · ${esc(s.orgao)}${s.inicio ? ' · ' + esc(s.inicio) : ''}</li>`).join('')}</ul>
+      <small>Cadastro de Expulsões da Administração Federal (CGU).</small></div>`);
+  }
+  const sancoes = (c.sancoes || []).filter(s => s.cadastro !== 'CEAF');
+  if (sancoes.length) {
     partes.push(`<div class="caixa-alerta"><strong>Sanções nos cadastros da CGU</strong>
-      <ul>${c.sancoes.map(s => `<li>${esc(s.cadastro)} · ${esc(s.categoria)} · ${s.sobreEmpresa ? 'empresa ' : ''}${esc(s.sancionado)} · ${esc(s.orgao)}${s.inicio ? ' · de ' + esc(s.inicio) : ''}${s.fim ? ' a ' + esc(s.fim) : ''}</li>`).join('')}</ul></div>`);
+      <ul>${sancoes.map(s => `<li>${esc(s.cadastro)} · ${esc(s.categoria)} · ${s.sobreEmpresa ? 'empresa ' : ''}${esc(s.sancionado)} · ${esc(s.orgao)}${s.inicio ? ' · de ' + esc(s.inicio) : ''}${s.fim ? ' a ' + esc(s.fim) : ''}</li>`).join('')}</ul></div>`);
   }
   const cass = c.trajetoria.filter(t => t.motivoCassacao);
   if (cass.length) {
@@ -656,7 +701,7 @@ function detalheCandidato(c, resumido) {
     const periodo = t.eleito ? `<br><small>Mandato ${t.ano + 1}–${t.fimMandato}${exercendo ? ' (em exercício)' : ''}</small>` : '';
     return `<li class="marco ${t.eleito ? 'eleito' : ''}"><span class="ano">${t.ano}</span>
       <div><strong>${esc(t.cargoTexto)}</strong>${t.local ? ' em ' + esc(t.local) : ''} · ${esc(t.partido)}
-        <span class="etiqueta ${cls}">${esc(t.resultado)}</span>${periodo}</div></li>`;
+        <span class="etiqueta ${cls}">${esc(t.resultado)}</span>${periodo}${t.votos != null ? `<br><small>${numeroBr(t.votos, 0)} votos no 1º turno</small>` : ''}</div></li>`;
   }).join('')}</ol>` : `<p class="fraco">Nenhuma candidatura encontrada nas eleições de ${c.trajetoriaDe} a ${c.trajetoriaAte} neste estado.
       Pode ser a primeira eleição, ou a pessoa concorreu em outro estado.</p>`;
 
@@ -674,6 +719,7 @@ function detalheCandidato(c, resumido) {
   const vinculos = blocoVinculos(c);
   const naLista = app.comparar.includes(c.sq);
   return `
+    ${blocoResumo(c)}
     ${blocoPreparo(c)}
     ${blocoMandatosExecutivo(c)}
     <div class="detalhe-grade">
@@ -681,7 +727,7 @@ function detalheCandidato(c, resumido) {
       <section><h3>O que fez nos mandatos</h3>
         ${atuacao || '<p class="fraco">Sem mandatos anteriores com dados de atuação.</p>'}</section>
       <section><h3>Patrimônio declarado ao longo do tempo</h3>${blocoPatrimonio(c)}</section>
-      <section><h3>Quem paga a campanha</h3>${blocoFinanciamento(c)}</section>
+      <section><h3>Dinheiro da campanha</h3>${blocoFinanciamento(c)}${blocoDespesas(c)}</section>
       <section><h3>Quem é</h3>
         <dl class="ficha-dados">
           <dt>Nome completo</dt><dd>${esc(c.nomeCivil)}</dd>

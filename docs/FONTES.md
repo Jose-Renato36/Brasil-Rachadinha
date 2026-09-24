@@ -243,11 +243,32 @@ Detalhes e cuidados:
 - **Prefeitos e governadores não têm base nacional de projetos de lei**: as câmaras municipais e assembleias publicam cada
   uma de um jeito.
 
+## Cargos de gestão, expulsões, contratos, plano de governo, verba do Senado, gastos e votos
+
+| Dado | Arquivo / endereço | Formato e ligação |
+|---|---|---|
+| Cargos públicos de destaque | Portal da Transparência, `download-de-dados/pep/AAAAMM` (zip com `AAAAMM_PEP.csv`) | `;`, ISO-8859-1; `CPF` (mascarado), `Nome_PEP`, `Descrição_Função`, `Nome_Órgão`, `Data_Início_Exercício`, `Data_Fim_Exercício`. Cobre quem está na função ou saiu há menos de 5 anos. Ligação por nome + CPF parcial |
+| Expulsões do serviço público federal | Portal da Transparência, `download-de-dados/ceaf/AAAAMMDD` | mesmo layout do CEIS/CNEP (`CPF OU CNPJ DO SANCIONADO`, `CATEGORIA DA SANÇÃO`...), só pessoa física |
+| Contratos federais das empresas do candidato | Portal da Transparência, `download-de-dados/compras/AAAAMM` (zip com `AAAAMM_Compras.csv`) | `Código Contratado` (CNPJ), `Nome Contratado`, `Objeto`, `Valor Inicial Compra`, `Nome Órgão`, `Data Assinatura Contrato`; cruzado com os 8 primeiros dígitos do CNPJ das empresas de que a pessoa é sócia. Baixado com `--empresas` |
+| Plano de governo | TSE, `proposta_governo/proposta_governo_ANO_UF.zip` (`BR` = Presidência) | PDFs nomeados com o número da candidatura (`2026SE260001234567_01.pdf`); copiados para `dados/processados/UF/planos/` e servidos em `/planos/` |
+| Verba de gabinete dos senadores | Senado, `senado.leg.br/transparencia/LAI/verba/despesa_ceaps_ANO.csv` | Windows-1252, `;`; a 1ª linha é a data de atualização. `SENADOR` (nome parlamentar), `ANO`, `MES`, `VALOR_REEMBOLSADO`; vira gasto médio por mês |
+| Gastos da campanha | TSE, mesmo zip da prestação de contas: `despesas_contratadas_candidatos_ANO_UF.csv` | `SQ_CANDIDATO`, `DS_ORIGEM_DESPESA`, `VR_DESPESA_CONTRATADA`; agrupados em 8 tipos simples (anúncios na internet, propaganda, vídeo/rádio/TV, pessoal, viagens, serviços, eventos, repasses) |
+| Votos em eleições anteriores | TSE, `votacao_candidato_munzona/votacao_candidato_munzona_ANO.zip` | soma de `QT_VOTOS_NOMINAIS` do 1º turno por `SQ_CANDIDATO` da candidatura antiga |
+
+Contratos de **estados e prefeituras** ficaram de fora: o Portal Nacional de Contratações Públicas só tem busca
+por fornecedor numa API não documentada.
+
+## "Em resumo"
+
+`preparo/ResumoCidadao` monta até ~9 frases curtas a partir de tudo o que foi coletado: situação do registro,
+experiência (mandatos e cargos de gestão), escolaridade, como estava o lugar que governou, alertas, patrimônio,
+dinheiro da campanha, empresas e contratos, e se registrou plano de governo. Cada frase vem com um sinal (ok,
+informação, atenção) com ícone e texto, nunca só cor. Não é nota nem recomendação de voto.
+
 ## Fontes avaliadas e não usadas
 
 | Fonte | Motivo |
 |---|---|
-| TSE – votação por candidato (`votacao_candidato_munzona`) | arquivos muito grandes para pouco ganho na decisão |
 | Assembleias legislativas e câmaras municipais | sem padrão nacional |
 | Filiação sindical | dado sensível (LGPD) e sem base pública individual |
 | Processos judiciais | sem base aberta estruturada confiável; risco de erro e dano à reputação |

@@ -56,6 +56,7 @@ public class HistoricoTse {
                     e.getValue().setPatrimonio(soma.getOrDefault(e.getKey(), 0.0));
                 }
             }
+            lerVotos(ano, porSq);
             int cassacoes = lerCassacoes(ano, porSq);
             if (cassacoes > 0) {
                 log.accept("  " + ano + ": " + cassacoes + " candidatura(s) anterior(es) com motivo de cassação");
@@ -96,6 +97,55 @@ public class HistoricoTse {
             }
         }
         return marcados.size();
+    }
+
+    private boolean votosLidos;
+
+    public boolean isVotosLidos() {
+        return votosLidos;
+    }
+
+    /** Soma dos votos nominais do 1º turno por candidatura (votacao_candidato_munzona_ANO_UF.csv). */
+    private void lerVotos(int ano, Map<String, CandidaturaAnterior> porSq) throws ArquivoInvalidoException {
+        Path arquivo = pasta.resolve(FontesDados.nomeLocal(FontesDados.votacao(ano)));
+        if (!Files.exists(arquivo)) {
+            return;
+        }
+        votosLidos = true;
+        Map<String, Long> soma = new HashMap<>();
+        Set<String> vistas = new HashSet<>();
+        for (String sufixo : ArquivosBrutos.sufixos(uf)) {
+            LeitorCsv aberto = ArquivosBrutos.abrirSeExistir(arquivo, ProcessadorTSE.LATIN1, sufixo);
+            if (aberto == null) {
+                continue;
+            }
+            try (LeitorCsv csv = aberto) {
+                int iSq = csv.indice("SQ_CANDIDATO");
+                int iTurno = csv.indiceOpcional("NR_TURNO");
+                int iVotos = csv.indice("QT_VOTOS_NOMINAIS", "QT_VOTOS_NOMINAIS_VALIDOS");
+                int iMun = csv.indiceOpcional("CD_MUNICIPIO");
+                int iZona = csv.indiceOpcional("NR_ZONA");
+                String[] l;
+                while ((l = csv.proximaLinha()) != null) {
+                    String sq = LeitorCsv.campo(l, iSq);
+                    String turno = LeitorCsv.campo(l, iTurno);
+                    if (!porSq.containsKey(sq) || !(turno.isEmpty() || turno.equals("1"))) {
+                        continue;
+                    }
+                    // no modo nacional a mesma linha pode vir em _BRASIL e _BR
+                    if (!vistas.add(sq + "|" + LeitorCsv.campo(l, iMun) + "|" + LeitorCsv.campo(l, iZona))) {
+                        continue;
+                    }
+                    Integer v = Texto.parseInteiro(LeitorCsv.campo(l, iVotos));
+                    if (v != null) {
+                        soma.merge(sq, (long) v, Long::sum);
+                    }
+                }
+            }
+        }
+        for (Map.Entry<String, CandidaturaAnterior> e : porSq.entrySet()) {
+            e.getValue().setVotos(soma.getOrDefault(e.getKey(), 0L));
+        }
     }
 
     public boolean isBensLidos() {

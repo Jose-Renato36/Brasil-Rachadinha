@@ -31,6 +31,12 @@ public class MandatoSenado {
     private final String uf;
     private final Downloader downloader;
     private final Consumer<String> log;
+    private Map<String, Double> gastoMensal = Map.of();
+
+    /** Gasto médio mensal da verba de gabinete (CEAPS) por nome parlamentar normalizado. */
+    public void setGastoMensal(Map<String, Double> gastoMensal) {
+        this.gastoMensal = gastoMensal == null ? Map.of() : gastoMensal;
+    }
 
     /** @param downloader null = usar só o que já está em cache no disco */
     public MandatoSenado(Path pasta, String uf, Downloader downloader, Consumer<String> log) {
@@ -59,7 +65,9 @@ public class MandatoSenado {
                 if (c == null) {
                     continue;
                 }
-                c.adicionarAtuacao(resumir(codigo, Xml.texto(p, "UrlPaginaParlamentar")));
+                ResumoMandato r = resumir(codigo, Xml.texto(p, "UrlPaginaParlamentar"));
+                r.setGastoMensal(gastoMensal.get(Texto.normalizar(Xml.texto(p, "NomeParlamentar"))));
+                c.adicionarAtuacao(r);
                 n++;
             }
             log.accept("  Senado: " + n + " candidatos são senadores(as) em exercício"

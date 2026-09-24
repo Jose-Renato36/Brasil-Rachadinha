@@ -55,6 +55,15 @@ public class PipelineColeta {
         return 57 + (anoEleicao - 2026) / 4;
     }
 
+    /** Anos da verba dos senadores considerados: os 8 anos do mandato mais longo possível. */
+    static int[] anosCotaSenado(int anoEleicao) {
+        int[] anos = new int[8];
+        for (int i = 0; i < 8; i++) {
+            anos[i] = anoEleicao - 7 + i;
+        }
+        return anos;
+    }
+
     public static LocalDate inicioLegislatura(int anoEleicao) {
         return LocalDate.of(anoEleicao - 3, 2, 1);
     }
@@ -78,7 +87,7 @@ public class PipelineColeta {
         int[] anos = anosLegislatura(anoEleicao);
         if (baixar) {
             baixarTudo(anoEleicao, anoAnterior, anos);
-            new DownloadsComplementares(pastaBrutos(), new Downloader(log), log).baixar(anoEleicao, baixarEmpresas);
+            new DownloadsComplementares(pastaBrutos(), new Downloader(log), log).baixar(uf, anoEleicao, baixarEmpresas);
         }
 
         Metadados meta = new Metadados(uf, anoEleicao, anoAnterior, dataPrimeiroTurno(anoEleicao));
@@ -105,10 +114,17 @@ public class PipelineColeta {
         if (historico.isCassacoesLidas()) {
             meta.marcarVerificada(Metadados.FONTE_CASSACAO);
         }
+        if (historico.isVotosLidos()) {
+            meta.marcarVerificada(Metadados.FONTE_VOTOS);
+        }
 
         log.accept("Lendo o financiamento das campanhas (prestação de contas)...");
-        if (new FinanciamentoCampanha(pastaBrutos(), uf, log).processar(new ArrayList<>(base.getCandidatos()), anoEleicao)) {
+        FinanciamentoCampanha financiamento = new FinanciamentoCampanha(pastaBrutos(), uf, log);
+        if (financiamento.processar(new ArrayList<>(base.getCandidatos()), anoEleicao)) {
             meta.marcarVerificada(Metadados.FONTE_RECEITAS);
+        }
+        if (financiamento.isDespesasLidas()) {
+            meta.marcarVerificada(Metadados.FONTE_DESPESAS);
         }
 
         log.accept("Verificando contas julgadas irregulares pelo TCU...");
@@ -130,8 +146,9 @@ public class PipelineColeta {
         new MandatoAnteriorCamara(pastaBrutos(), uf, log).processar(new ArrayList<>(base.getCandidatos()),
                 tse.getCpfPorSq(), anoEleicao, baixar ? new Downloader(log) : null);
         log.accept("Consultando o Senado...");
-        new MandatoSenado(pastaBrutos(), uf, baixar ? new Downloader(log) : null, log)
-                .processar(new ArrayList<>(base.getCandidatos()));
+        MandatoSenado senado = new MandatoSenado(pastaBrutos(), uf, baixar ? new Downloader(log) : null, log);
+        senado.setGastoMensal(new CotaSenado(pastaBrutos(), log).gastoMensal(anosCotaSenado(anoEleicao)));
+        senado.processar(new ArrayList<>(base.getCandidatos()));
 
         log.accept("Cruzando candidaturas com deputados...");
         CruzadorIdentidades cruzador = new CruzadorIdentidades();
@@ -150,9 +167,22 @@ public class PipelineColeta {
         if (new EmpresasReceita(pastaBrutos(), log).processar(todos, tse.getCpfPorSq())) {
             meta.marcarVerificada(Metadados.FONTE_EMPRESAS);
         }
-        log.accept("Verificando sanções da CGU (CEIS/CNEP)...");
-        if (new SancoesCgu(pastaBrutos(), log).processar(todos, tse.getCpfPorSq())) {
+        log.accept("Verificando contratos federais das empresas dos candidatos...");
+        if (new ContratosFederais(pastaBrutos(), log).processar(todos)) {
+            meta.marcarVerificada(Metadados.FONTE_CONTRATOS);
+        }
+        log.accept("Verificando sanções e expulsões da CGU (CEIS, CNEP, CEAF)...");
+        SancoesCgu sancoes = new SancoesCgu(pastaBrutos(), log);
+        sancoes.processar(todos, tse.getCpfPorSq());
+        if (sancoes.getLidos().contains("CEIS") || sancoes.getLidos().contains("CNEP")) {
             meta.marcarVerificada(Metadados.FONTE_SANCOES);
+        }
+        if (sancoes.getLidos().contains("CEAF")) {
+            meta.marcarVerificada(Metadados.FONTE_EXPULSOES);
+        }
+        log.accept("Procurando cargos públicos de destaque (Pessoas Expostas Politicamente)...");
+        if (new CargosPublicosPep(pastaBrutos(), log).processar(todos, tse.getCpfPorSq())) {
+            meta.marcarVerificada(Metadados.FONTE_CARGOS_PUBLICOS);
         }
         log.accept("Verificando vínculos com o serviço público federal (SIAPE)...");
         if (new ServidoresFederais(pastaBrutos(), log).processar(todos, tse.getCpfPorSq())) {
@@ -166,6 +196,10 @@ public class PipelineColeta {
         }
 
         Path destino = pastaProcessada(uf);
+        log.accept("Copiando os planos de governo registrados no TSE...");
+        if (new PlanosGoverno(pastaBrutos(), log).processar(todos, uf, anoEleicao, destino)) {
+            meta.marcarVerificada(Metadados.FONTE_PLANOS);
+        }
         RepositorioArquivos repositorio = new RepositorioArquivos();
         List<PosicaoUsuario> posicoesAntigas = repositorio.lerPosicoes(destino);
         base.setDiretorio(destino);
@@ -201,11 +235,17 @@ public class PipelineColeta {
                 opcionais.add(FontesDados.bens(ano)); // série do patrimônio
             }
             opcionais.add(FontesDados.motivoCassacao(ano));
+            opcionais.add(FontesDados.votacao(ano)); // votos recebidos em cada eleição anterior
         }
         opcionais.add(ContasIrregularesTcu.URL);
         opcionais.add(FontesDados.prestacaoContas(anoEleicao));
         opcionais.add(FontesDados.emendas());
         opcionais.add(FontesDados.municipiosTseIbge());
+        for (int ano : anosCotaSenado(anoEleicao)) {
+            if (ano <= LocalDate.now().getYear()) {
+                opcionais.add(FontesDados.cotaSenado(ano));
+            }
+        }
         // legislatura anterior (resumo do mandato de ex-deputados federais) + atual
         List<Integer> anosCamara = new ArrayList<>();
         for (int ano : MandatoAnteriorCamara.anos(anoEleicao)) {

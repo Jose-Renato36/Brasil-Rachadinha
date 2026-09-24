@@ -10,7 +10,7 @@ e mostra, em linguagem simples, se a pessoa tem preparo para o cargo, o que já 
 ![Java 17](https://img.shields.io/badge/Java-17%2B-1f5fae)
 ![Maven](https://img.shields.io/badge/build-Maven-1f5fae)
 ![Sem dependências](https://img.shields.io/badge/depend%C3%AAncias%20em%20execu%C3%A7%C3%A3o-nenhuma-1b7f4b)
-![Testes](https://img.shields.io/badge/testes-61%20passando-1b7f4b)
+![Testes](https://img.shields.io/badge/testes-70%20passando-1b7f4b)
 ![Dados abertos](https://img.shields.io/badge/dados-TSE%20%C2%B7%20C%C3%A2mara%20%C2%B7%20Senado%20%C2%B7%20TCU%20%C2%B7%20CGU%20%C2%B7%20IBGE%20%C2%B7%20INEP%20%C2%B7%20Tesouro%20%C2%B7%20BCB-5d5c57)
 
 <img src="docs/imagens/inicio.png" alt="Página inicial: busca por nome ou número, escolha do estado e do cargo" width="820">
@@ -44,13 +44,13 @@ que o eleitor faz de verdade:
 <table>
 <tr>
 <td width="50%"><img src="docs/imagens/candidatos.png" alt="Cartões de candidatos com linha do tempo"></td>
-<td width="50%"><img src="docs/imagens/preparo.png" alt="Quadro Preparo para o cargo"></td>
+<td width="50%"><img src="docs/imagens/resumo.png" alt="Em resumo: o essencial da ficha em poucas frases"></td>
 </tr>
 <tr>
 <td><b>Candidatos em cartões.</b> Filtre por estado e cargo e veja de relance quem é estreante, quem já concorreu,
 quem já foi eleito(a) e quem tem mandato hoje, com uma linha do tempo de 2018 a 2024.</td>
-<td><b>Preparo para o cargo.</b> Requisitos da lei, formação, experiência e alertas em registros públicos.
-São fatos com fonte, sem nota. Quando uma fonte não foi consultada, o site diz "não consultado", nunca "nada consta".</td>
+<td><b>Em resumo.</b> O essencial da ficha em poucas frases do dia a dia, com o botão para ler o plano de governo.
+Logo abaixo vem o <b>Preparo para o cargo</b>: requisitos da lei, formação, experiência e alertas, sempre com a fonte.</td>
 </tr>
 <tr>
 <td width="50%"><img src="docs/imagens/antes-depois.png" alt="Como estava a cidade quando a pessoa foi prefeita, comparada com o estado"></td>
@@ -69,15 +69,16 @@ sempre ao lado do estado ou do Brasil no mesmo período. Vale para prefeito, gov
 
 | Seção | O que mostra | Fonte |
 |---|---|---|
+| **Em resumo** | poucas frases em linguagem do dia a dia com o essencial da ficha, e o botão para ler o plano de governo | todas as fontes |
 | **Preparo para o cargo** | idade mínima na posse (Constituição, art. 14), situação do registro, escolaridade, anos de mandato no Executivo e no Legislativo, experiência na mesma função | TSE |
-| **Trajetória política** | candidaturas de 2018 a 2024 (inclusive vereador e prefeito) e resultado de cada uma | TSE |
-| **O que fez nos mandatos** | presença nas votações, projetos, aprovados e verba de gabinete; atuação no Senado | Câmara, Senado |
+| **Trajetória política** | candidaturas de 2018 a 2024 (inclusive vereador e prefeito), resultado e votos de cada uma | TSE |
+| **O que fez nos mandatos** | presença nas votações, projetos, aprovados e verba de gabinete (deputados e senadores) | Câmara, Senado |
 | **Emendas parlamentares** | quanto indicou e quanto foi pago, para quais cidades e áreas, parte em "emenda Pix" | Portal da Transparência |
 | **Como estava o lugar quando governou** | ex-prefeitos, ex-governadores e ex-presidentes: PIB, empregos, desemprego, IDEB, gasto com pessoal, investimento e contas; para presidente também inflação, dívida, medidas provisórias e projetos aprovados. Sempre ao lado do estado ou do Brasil no mesmo período | IBGE, INEP, Tesouro, Banco Central, Câmara |
 | **Patrimônio** | bens declarados em cada eleição disputada | TSE |
-| **Quem paga a campanha** | fundo eleitoral, partido, doações, dinheiro próprio e vaquinha | TSE (prestação de contas) |
-| **Fora da política** | empresas de que é sócio(a) e vínculo com o serviço público federal | Receita Federal, Portal da Transparência |
-| **Registros que merecem atenção** | contas julgadas irregulares, cassações, sanções CEIS/CNEP | TCU, TSE, CGU |
+| **Dinheiro da campanha** | de onde vem (fundo eleitoral, partido, doações, dinheiro próprio) e em que é gasto | TSE (prestação de contas) |
+| **Fora da política** | cargos públicos de gestão (ministro, secretário, estatais), empresas de que é sócio(a), contratos dessas empresas com o governo federal e vínculo com o serviço público | CGU, Receita Federal, Portal da Transparência |
+| **Registros que merecem atenção** | contas julgadas irregulares, cassações, sanções CEIS/CNEP e expulsões do serviço público (CEAF) | TCU, TSE, CGU |
 
 ### Outras páginas
 
@@ -204,10 +205,11 @@ interface usam recursos padrão do JDK e da web.
 mvn test
 ```
 
-São 61 testes. Eles cobrem estatística, leitura de CSV, cada indicador, ranking (soma ponderada, TOPSIS,
+São 70 testes. Eles cobrem estatística, leitura de CSV, cada indicador, ranking (soma ponderada, TOPSIS,
 cobertura mínima), elegibilidade, cruzamento de identidades, o quadro de preparo e a coleta completa sobre
 arquivos pequenos no **layout real** de cada fonte (TSE, Câmara, Senado, TCU, receitas, emendas, CEIS/CNEP,
-SIAPE, CNPJ, SICONFI, IBGE, INEP, Banco Central e os projetos do Executivo na Câmara). Também testam o servidor web respondendo como o navegador.
+SIAPE, CNPJ, SICONFI, IBGE, INEP, Banco Central, projetos do Executivo, PEP, CEAF, contratos, planos de governo,
+verba do Senado, gastos e votos) e o "Em resumo". Também testam o servidor web respondendo como o navegador.
 
 ## Limitações conhecidas
 

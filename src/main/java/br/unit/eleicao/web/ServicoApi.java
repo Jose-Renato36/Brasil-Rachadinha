@@ -364,6 +364,12 @@ public class ServicoApi {
         return r;
     }
 
+    /** Pasta com os PDFs dos planos de governo da base carregada (null sem base). */
+    public synchronized java.nio.file.Path pastaPlanos() {
+        return base == null || base.getDiretorio() == null ? null
+                : base.getDiretorio().resolve(br.unit.eleicao.coleta.PlanosGoverno.PASTA);
+    }
+
     public synchronized Map<String, Object> candidato(String sq) throws DadosException {
         exigirBase();
         Candidato c = base.buscarCandidato(sq);
@@ -398,6 +404,7 @@ public class ServicoApi {
             tm.put("fimMandato", t.getFimMandato());
             tm.put("patrimonio", t.getPatrimonio());
             tm.put("motivoCassacao", t.getMotivoCassacao());
+            tm.put("votos", t.getVotos());
             trajetoria.add(tm);
         }
         m.put("trajetoria", trajetoria);
