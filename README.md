@@ -116,11 +116,17 @@ java -jar target/decisao-eleitoral-0.2.0.jar web                         # abre 
 | Comando | O que faz |
 |---|---|
 | `web [UF\|demo] [porta]` | sobe o site (porta 8080 ou a próxima livre) |
-| `coletar BR\|UF [2026] [--sem-download] [--empresas]` | baixa e processa os dados; `--sem-download` usa só o que já está em `dados/brutos/`; `--empresas` baixa também o CNPJ da Receita (vários GB) |
+| `coletar BR\|UF [2026] [--sem-download] [--sem-empresas]` | baixa e processa **tudo**; `--sem-download` usa só o que já está em `dados/brutos/`; `--sem-empresas` pula os dados do CNPJ e dos contratos federais (vários GB), para uma coleta mais rápida |
 | `ranking UF\|demo` | imprime um ranking com pesos iguais no console |
 
-A coleta também pode ser feita **pelo próprio site**, na página **Dados**. A primeira coleta do Brasil inteiro
-baixa alguns GB e pode passar de uma hora; depois tudo fica guardado em `dados/` e o site abre direto.
+A coleta também pode ser feita **pelo próprio site**, na página **Dados**. Por padrão ela busca **tudo** (todas as
+fontes, inclusive empresas e contratos). A primeira coleta do Brasil inteiro baixa **cerca de 15 GB** e pode levar
+**várias horas**; reserve uns 30 GB livres. Depois tudo fica guardado em `dados/` e as próximas coletas reaproveitam
+o que já foi baixado.
+
+Depois de coletar, o site abre sozinho os **dados reais**: o Brasil inteiro, se foi coletado, ou o último estado
+coletado. A demonstração (dados fictícios) só aparece enquanto não houver nenhuma coleta, e pode ser aberta
+a qualquer momento na página **Dados**.
 
 > [!TIP]
 > Se o site do TSE recusar o download automático, baixe os `.zip` pelo navegador em

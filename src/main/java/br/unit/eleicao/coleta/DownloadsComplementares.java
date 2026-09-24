@@ -67,7 +67,7 @@ public class DownloadsComplementares {
             baixarCnpj();
             baixarContratos(anoEleicao);
         } else {
-            log.accept("  (empresas) dados do CNPJ não baixados: use --empresas ou coloque Socios*.zip e Empresas*.zip "
+            log.accept("  (empresas) dados do CNPJ não baixados (--sem-empresas): para incluí-los, colete sem essa opção ou coloque Socios*.zip e Empresas*.zip "
                     + "em " + pasta.resolve(EmpresasReceita.PASTA).toAbsolutePath());
         }
     }

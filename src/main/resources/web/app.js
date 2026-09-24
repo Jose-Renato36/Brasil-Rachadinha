@@ -1324,7 +1324,7 @@ async function telaDados() {
       <section class="cartao">
         <h2>Coletar dados reais</h2>
         <p class="fraco">Baixa os arquivos públicos do TSE, da Câmara, do Senado, do TCU, do Portal da Transparência e do Tesouro. O Brasil inteiro soma
-          <strong>alguns GB</strong> e a primeira coleta pode levar mais de uma hora; depois fica guardado no computador.
+          <strong>cerca de 15 GB</strong> (todas as fontes) e a primeira coleta pode levar várias horas; depois fica guardado no computador.
           Um estado só é mais rápido.</p>
         <div class="grade grade-2">
           <div><label for="uf">Estado</label><select id="uf"><option value="BR" selected>Brasil inteiro (todos os estados)</option>${UFS.map(u => `<option value="${u}">${esc(nomeUf(u))}</option>`).join('')}</select></div>
